@@ -65,9 +65,10 @@ async function handleButton(interaction, refreshServerStats) {
         `Olá <@${interaction.user.id}>! Sua guild identificada: **[${userGuild.tag}] ${userGuild.name}**\n\n` +
         `Para registrar sua presença com print, use o comando abaixo:\n\n` +
         `### ⌨️ Comando:\n` +
-        `\`\`\`\n/presenca print:[anexe seu print] tipo:[Titular ou Piloto]\n\`\`\`\n` +
-        `• **Se você for Titular:** selecione \`🛡️ Titular\` (seu próprio boneco).\n` +
-        `• **Se você for Piloto:** selecione \`🎮 Piloto\` e no campo \`dono:\` marque o Discord do Dono do Personagem!\n\n` +
+        `\`\`\`\n/presenca print:[anexe seu print]\n\`\`\`\n` +
+        `• **Basta anexar o print!** Por padrão, sua presença é computada automaticamente como **Titular** (seu próprio boneco).\n` +
+        `• **Caso seja Piloto:** Preencha o campo opcional \`dono:\` marcando o Discord do Dono do Personagem!\n\n` +
+        `💡 *Se o Discord exibir "Comando desatualizado", basta dar **Ctrl + R** no Discord para recarregar o cache de comandos!*\n\n` +
         `*Após enviar, sua liderança receberá o comprovante no canal interno de validação.*`
       )
       .setColor(Colors.Green)
