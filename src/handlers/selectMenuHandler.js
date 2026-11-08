@@ -20,9 +20,48 @@ async function handleSelectMenu(interaction) {
   // --- FILTRO DE GUILD NO PAINEL DE PRESENÇA ---
   if (customId === 'select_attendance_guild_filter') {
     const selectedGuildId = values[0];
-    await interaction.deferUpdate();
-    await renderOrUpdatePresencePanel(interaction.guild, interaction.channel, selectedGuildId);
-    return;
+    if (selectedGuildId === 'all') {
+      await interaction.deferUpdate();
+      await renderOrUpdatePresencePanel(interaction.guild, interaction.channel, 'all');
+      return;
+    }
+
+    const guildsList = getGuilds();
+    const targetG = guildsList.find(g => g.id === selectedGuildId || g.tag === selectedGuildId);
+    if (!targetG) {
+      return interaction.reply({ content: '❌ Guild não encontrada.', ephemeral: true });
+    }
+
+    const { getAttendanceData } = require('../attendance_manager');
+    const { EmbedBuilder, Colors } = require('discord.js');
+    const data = getAttendanceData();
+    const usersArray = Object.values(data.users || {});
+    const filteredUsers = usersArray.filter(u => u.guildId === targetG.id || u.guildTag === targetG.tag);
+    filteredUsers.sort((a, b) => (b.totalPresencas || 0) - (a.totalPresencas || 0));
+
+    let rankText = '';
+    if (filteredUsers.length === 0) {
+      rankText = '*Nenhuma presença confirmada ainda para esta guild.*';
+    } else {
+      const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+      rankText = filteredUsers.slice(0, 15).map((u, i) => {
+        const medal = medals[i] || `\`#${i + 1}\``;
+        const pilotInfo = u.asPilot > 0 ? ` *(🎯 ${u.asPilot} via Piloto)*` : '';
+        return `${medal} <@${u.userId}> — **${u.totalPresencas} presenças**${pilotInfo}`;
+      }).join('\n');
+    }
+
+    const embedGuildRank = new EmbedBuilder()
+      .setTitle(`🏰 Ranking de Presença ┃ [${targetG.tag}] ${targetG.name}`)
+      .setDescription(
+        `Ranking individual dos membros da **${targetG.name}** em Bosses de Geena:\n\n` +
+        rankText
+      )
+      .setColor(Colors.Gold)
+      .setFooter({ text: 'Consulta individual efêmera' })
+      .setTimestamp();
+
+    return interaction.reply({ embeds: [embedGuildRank], ephemeral: true });
   }
 
   // --- SELEÇÃO DE GUILD DE DESTINO PARA TRANSFERÊNCIA ---

@@ -1,6 +1,66 @@
 {
-  "submissions": {},
-  "users": {},
+  "submissions": {
+    "att_1794162716927_213": {
+      "id": "att_1794162716927_213",
+      "eventId": "geena_15_2026-11-08",
+      "eventName": "Geena 15:00",
+      "submitterId": "285123547750203392",
+      "submitterTag": "lost6256",
+      "isPilot": false,
+      "pilotUserId": null,
+      "ownerUserId": "285123547750203392",
+      "ownerUserTag": "lost6256",
+      "guildId": "guild_1793491314251",
+      "guildTag": "CHP",
+      "guildName": "CHAPA1",
+      "printUrl": "https://cdn.discordapp.com/ephemeral-attachments/1566613320650199171/1569056906536947832/Captura_de_tela_2026-11-08_151540.png?ex=6af2119e&is=6af0c01e&hm=085c8543b14de36fbf5db9347a8c1c653dc6256cf306ce81b34c491d37de07d7&",
+      "note": "Krux",
+      "status": "pending",
+      "createdAt": "2026-11-08T18:31:56.927Z",
+      "validatedBy": null,
+      "validatedAt": null,
+      "rejectionReason": null,
+      "validationMessageId": "1569056912480411709",
+      "validationChannelId": "1569013300325257266"
+    },
+    "att_1794162811459_404": {
+      "id": "att_1794162811459_404",
+      "eventId": "geena_15_2026-11-08",
+      "eventName": "Geena 15:00",
+      "submitterId": "773250841607667773",
+      "submitterTag": "sololeveling5091",
+      "isPilot": false,
+      "pilotUserId": null,
+      "ownerUserId": "773250841607667773",
+      "ownerUserTag": "sololeveling5091",
+      "guildId": "guild_1793298314017",
+      "guildTag": "NOM",
+      "guildName": "No Mercy",
+      "printUrl": "https://cdn.discordapp.com/ephemeral-attachments/1566613320650199171/1569057302156156979/boss.png?ex=6af211fc&is=6af0c07c&hm=fa0f96b6845314baa1c66fa9480c843f545d3a884835008e7a5afacd57dcc70f&",
+      "note": "nagi",
+      "status": "approved",
+      "createdAt": "2026-11-08T18:33:31.459Z",
+      "validatedBy": "773250841607667773",
+      "validatedAt": "2026-11-08T18:33:36.026Z",
+      "rejectionReason": null,
+      "validationMessageId": "1569057308971896885",
+      "validationChannelId": "1569013282621104189"
+    }
+  },
+  "users": {
+    "773250841607667773": {
+      "userId": "773250841607667773",
+      "userTag": "sololeveling5091",
+      "guildId": "guild_1793298314017",
+      "guildTag": "NOM",
+      "totalPresencas": 1,
+      "asTitular": 1,
+      "asPilot": 0,
+      "timesPiloting": 0,
+      "lastEvent": "Geena 15:00",
+      "lastDate": "2026-11-08T18:33:36.026Z"
+    }
+  },
   "panelMessageId": "1569013308621594805",
   "checkinBannerMessageId": "1569013304515498036",
   "activeWindowOverride": {
