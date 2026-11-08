@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
+const SEEDS_DIR = path.join(__dirname, 'data_seeds');
 const GUILDS_FILE = path.join(DATA_DIR, 'guilds.json');
 const APPS_FILE = path.join(DATA_DIR, 'applications.json');
 const CONFIG_FILE = path.join(DATA_DIR, 'server_config.json');
@@ -10,6 +11,20 @@ function ensureFiles() {
   if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
   }
+
+  // Auto-seed: Se a pasta montada na VPS estiver vazia, restaura automaticamente os dados atuais do projeto
+  const seedFiles = ['guilds.json', 'server_config.json', 'bosses.json', 'applications.json', 'presencas.json'];
+  if (fs.existsSync(SEEDS_DIR)) {
+    for (const file of seedFiles) {
+      const targetPath = path.join(DATA_DIR, file);
+      const seedPath = path.join(SEEDS_DIR, file);
+      if (!fs.existsSync(targetPath) && fs.existsSync(seedPath)) {
+        console.log(`[SEED] Restaurando ${file} para a pasta de dados persistentes...`);
+        fs.copyFileSync(seedPath, targetPath);
+      }
+    }
+  }
+
   if (!fs.existsSync(GUILDS_FILE)) {
     fs.writeFileSync(GUILDS_FILE, JSON.stringify([], null, 2));
   }
@@ -19,6 +34,7 @@ function ensureFiles() {
 }
 
 function getServerConfig() {
+  ensureFiles();
   if (fs.existsSync(CONFIG_FILE)) {
     return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
   }
