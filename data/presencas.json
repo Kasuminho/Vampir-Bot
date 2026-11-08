@@ -2,5 +2,13 @@
   "submissions": {},
   "users": {},
   "panelMessageId": "1569013308621594805",
-  "checkinBannerMessageId": "1569013304515498036"
+  "checkinBannerMessageId": "1569013304515498036",
+  "activeWindowOverride": {
+    "key": "geena_15",
+    "name": "Geena 15:00",
+    "expiresAt": "2026-11-08T19:00:00.000Z",
+    "extendedBy": "Kas",
+    "extendedMinutes": 30,
+    "reason": "Ajuste e cadastro da Dinastia na Coalizão"
+  }
 }

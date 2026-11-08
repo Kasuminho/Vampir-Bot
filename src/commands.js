@@ -273,6 +273,22 @@ const commands = [
     ),
 
   new SlashCommandBuilder()
+    .setName('estender-presenca')
+    .setDescription('Estende o tempo da janela de check-in do Boss atual (Staff e Líderes)')
+    .addIntegerOption(option =>
+      option.setName('minutos')
+        .setDescription('Quantidade de minutos a adicionar (Padrão: 30 minutos)')
+        .setMinValue(5)
+        .setMaxValue(180)
+        .setRequired(false)
+    )
+    .addStringOption(option =>
+      option.setName('motivo')
+        .setDescription('Motivo da extensão de tempo (opcional)')
+        .setRequired(false)
+    ),
+
+  new SlashCommandBuilder()
     .setName('presenca-painel')
     .setDescription('Atualiza ou re-envia o painel fixo de ranking de presenças (Staff)')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),

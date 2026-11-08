@@ -29,7 +29,9 @@ const {
 const {
   submitAttendance,
   renderOrUpdatePresencePanel,
-  getUserAttendanceSummary
+  getUserAttendanceSummary,
+  extendGeenaWindow,
+  renderOrUpdateCheckinBanner
 } = require('../attendance_manager');
 
 function parseHexColor(input) {
@@ -1420,6 +1422,54 @@ async function handleCommand(interaction, refreshServerStats) {
       .setTimestamp();
 
     return interaction.editReply({ embeds: [embedSuccess] });
+  }
+
+  // --- /estender-presenca (Staff e Líderes) ---
+  if (commandName === 'estender-presenca') {
+    const isStaff = member.permissions.has(PermissionFlagsBits.Administrator) ||
+                    (config?.roles?.staff && member.roles.cache.has(config.roles.staff));
+    const isLider = config?.roles?.lider && member.roles.cache.has(config.roles.lider);
+    const isOficial = config?.roles?.oficial && member.roles.cache.has(config.roles.oficial);
+
+    if (!isStaff && !isLider && !isOficial) {
+      return interaction.reply({
+        content: '❌ **Permissão negada:** Apenas a Staff, Líderes de Guild e Oficiais podem estender o tempo do check-in.',
+        ephemeral: true
+      });
+    }
+
+    const minutos = interaction.options.getInteger('minutos') || 30;
+    const motivo = interaction.options.getString('motivo') || '';
+
+    await interaction.deferReply({ ephemeral: false });
+
+    const result = extendGeenaWindow({
+      minutes: minutos,
+      executorUser: interaction.user,
+      reason: motivo
+    });
+
+    // Atualiza o banner do canal de check-in imediatamente
+    if (config?.channels?.checkinGeena) {
+      const chCheckin = await guild.channels.fetch(config.channels.checkinGeena).catch(() => null);
+      if (chCheckin) await renderOrUpdateCheckinBanner(guild, chCheckin).catch(() => {});
+    }
+
+    const embedExt = new EmbedBuilder()
+      .setTitle('⏳ JANELA DE CHECK-IN ESTENDIDA COM SUCESSO!')
+      .setDescription(
+        `A janela de marcação de presença para **${result.name}** foi prorrogada!\n\n` +
+        `⏱️ **Tempo Adicionado:** \`+${minutos} minutos\`\n` +
+        `🔒 **Novo Horário de Fechamento:** às **${result.closesAt}** (Restam ~**${result.minutesTotalLeft} minutos**)\n` +
+        `🛡️ **Autorizado por:** <@${interaction.user.id}>\n` +
+        (motivo ? `📝 **Motivo:** *${motivo}*\n` : '') +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `*O banner em <#${config?.channels?.checkinGeena}> já foi atualizado com o novo tempo.*`
+      )
+      .setColor(Colors.Green)
+      .setTimestamp();
+
+    return interaction.editReply({ embeds: [embedExt] });
   }
 
   // --- /presenca-painel (Staff/Admin) ---

@@ -45,13 +45,36 @@ function saveAttendanceData(data) {
 }
 
 /**
- * Retorna o status da janela de check-in de 30 minutos
- * Apenas aberta das HH:00 até HH:30 nos horários 15:00, 19:00 e 23:00
+ * Retorna o status da janela de check-in (30 minutos padrão ou tempo estendido por liderança)
  */
 function getGeenaWindowStatus(now = new Date()) {
+  const data = getAttendanceData();
+
+  // 1. Verifica se há uma extensão ativa manual (ex: estendida por comando)
+  if (data.activeWindowOverride) {
+    const expiresAt = new Date(data.activeWindowOverride.expiresAt);
+    if (now.getTime() < expiresAt.getTime()) {
+      const diffMs = expiresAt.getTime() - now.getTime();
+      const minutesLeft = Math.ceil(diffMs / 60000);
+      const closesAt = expiresAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      return {
+        isOpen: true,
+        key: data.activeWindowOverride.key || 'geena_15',
+        name: data.activeWindowOverride.name || 'Geena 15:00',
+        minutesLeft,
+        closesAt,
+        isExtended: true,
+        extendedBy: data.activeWindowOverride.extendedBy
+      };
+    } else {
+      // Expirou, remove o override
+      delete data.activeWindowOverride;
+      saveAttendanceData(data);
+    }
+  }
+
   const currentHour = now.getHours();
   const currentMinute = now.getMinutes();
-
   const spawnHours = [15, 19, 23];
 
   for (const h of spawnHours) {
@@ -63,7 +86,8 @@ function getGeenaWindowStatus(now = new Date()) {
         name: `Geena ${h}:00`,
         spawnHour: h,
         minutesLeft,
-        closesAt: `${String(h).padStart(2, '0')}:30`
+        closesAt: `${String(h).padStart(2, '0')}:30`,
+        isExtended: false
       };
     }
   }
@@ -81,6 +105,57 @@ function getGeenaWindowStatus(now = new Date()) {
     name: null,
     nextSpawn: `${String(nextHour).padStart(2, '0')}:00`,
     message: `A janela de presença abre às ${String(nextHour).padStart(2, '0')}:00 e fica aberta por 30 minutos.`
+  };
+}
+
+/**
+ * Estende a janela de presença em N minutos
+ */
+function extendGeenaWindow({ minutes = 30, executorUser = null, reason = '' }) {
+  const data = getAttendanceData();
+  const now = new Date();
+
+  let baseTime = now.getTime();
+  let currentKey = 'geena_15';
+  let currentName = 'Geena 15:00';
+
+  if (data.activeWindowOverride && new Date(data.activeWindowOverride.expiresAt).getTime() > now.getTime()) {
+    baseTime = new Date(data.activeWindowOverride.expiresAt).getTime();
+    currentKey = data.activeWindowOverride.key || currentKey;
+    currentName = data.activeWindowOverride.name || currentName;
+  } else {
+    const curr = detectCurrentGeenaEvent(now);
+    currentKey = curr.key;
+    currentName = curr.name;
+    const h = now.getHours();
+    if ([15, 19, 23].includes(h) && now.getMinutes() < 30) {
+      const defaultClose = new Date(now);
+      defaultClose.setMinutes(30, 0, 0);
+      baseTime = defaultClose.getTime();
+    }
+  }
+
+  const newExpiresTime = baseTime + (minutes * 60 * 1000);
+  const newExpiresDate = new Date(newExpiresTime);
+
+  data.activeWindowOverride = {
+    key: currentKey,
+    name: currentName,
+    expiresAt: newExpiresDate.toISOString(),
+    extendedBy: executorUser ? (executorUser.tag || executorUser.username) : 'Staff',
+    extendedMinutes: minutes,
+    reason: reason || ''
+  };
+
+  saveAttendanceData(data);
+
+  return {
+    success: true,
+    key: currentKey,
+    name: currentName,
+    expiresAt: newExpiresDate,
+    closesAt: newExpiresDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+    minutesTotalLeft: Math.ceil((newExpiresTime - now.getTime()) / 60000)
   };
 }
 
@@ -867,6 +942,8 @@ module.exports = {
   GEENA_SCHEDULE,
   getAttendanceData,
   saveAttendanceData,
+  getGeenaWindowStatus,
+  extendGeenaWindow,
   detectCurrentGeenaEvent,
   getMemberGuild,
   setupAttendanceChannels,
