@@ -1317,11 +1317,6 @@ async function handleCommand(interaction, refreshServerStats) {
         iconUrl: iconeUrl,
         createdAt: new Date().toISOString()
       };
-        description: descricao,
-        color: corInput,
-        iconUrl: iconeUrl,
-        createdAt: new Date().toISOString()
-      };
 
       addGuild(newGuildData);
       refreshServerStats(interaction.client).catch(() => {});
