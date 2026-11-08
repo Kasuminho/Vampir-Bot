@@ -131,6 +131,18 @@ client.once('ready', async () => {
     }
   }, 2 * 60 * 1000);
 
+  // Rotina de Atualização do Banner de Check-in (a cada 60s para abrir/fechar na hora certa)
+  setInterval(async () => {
+    try {
+      const currentConfig = getServerConfig();
+      if (currentConfig?.channels?.checkinGeena) {
+        const guild = await client.guilds.fetch(process.env.GUILD_ID);
+        const chCheckin = await guild.channels.fetch(currentConfig.channels.checkinGeena).catch(() => null);
+        if (chCheckin) await renderOrUpdateCheckinBanner(guild, chCheckin);
+      }
+    } catch (err) {}
+  }, 60 * 1000);
+
   // Rotina de Checagem de Alertas de Bosses (a cada 30 segundos)
   setInterval(() => {
     checkAndSendBossAlerts(client).catch(() => {});

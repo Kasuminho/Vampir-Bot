@@ -45,19 +45,61 @@ function saveAttendanceData(data) {
 }
 
 /**
+ * Retorna o status da janela de check-in de 30 minutos
+ * Apenas aberta das HH:00 até HH:30 nos horários 15:00, 19:00 e 23:00
+ */
+function getGeenaWindowStatus(now = new Date()) {
+  const currentHour = now.getHours();
+  const currentMinute = now.getMinutes();
+
+  const spawnHours = [15, 19, 23];
+
+  for (const h of spawnHours) {
+    if (currentHour === h && currentMinute < 30) {
+      const minutesLeft = 30 - currentMinute;
+      return {
+        isOpen: true,
+        key: `geena_${h}`,
+        name: `Geena ${h}:00`,
+        spawnHour: h,
+        minutesLeft,
+        closesAt: `${String(h).padStart(2, '0')}:30`
+      };
+    }
+  }
+
+  // Se fora da janela, calcula o próximo horário
+  let nextHour = 15;
+  if (currentHour < 15) nextHour = 15;
+  else if (currentHour < 19) nextHour = 19;
+  else if (currentHour < 23) nextHour = 23;
+  else nextHour = 15;
+
+  return {
+    isOpen: false,
+    key: null,
+    name: null,
+    nextSpawn: `${String(nextHour).padStart(2, '0')}:00`,
+    message: `A janela de presença abre às ${String(nextHour).padStart(2, '0')}:00 e fica aberta por 30 minutos.`
+  };
+}
+
+/**
  * Detecta o evento de Geena atual ou mais próximo
  */
 function detectCurrentGeenaEvent(now = new Date()) {
+  const windowStatus = getGeenaWindowStatus(now);
+  if (windowStatus.isOpen) {
+    return { key: windowStatus.key, name: windowStatus.name };
+  }
+
   const currentHour = now.getHours();
-  // Se for entre 13h e 17h -> Geena 15:00
   if (currentHour >= 13 && currentHour < 18) {
     return { key: 'geena_15', name: 'Geena 15:00' };
   }
-  // Se for entre 18h e 21h -> Geena 19:00
   if (currentHour >= 18 && currentHour < 22) {
     return { key: 'geena_19', name: 'Geena 19:00' };
   }
-  // Se for entre 22h e 03h -> Geena 23:00
   return { key: 'geena_23', name: 'Geena 23:00' };
 }
 
@@ -298,38 +340,55 @@ async function setupAttendanceChannels(discordGuild) {
  */
 async function renderOrUpdateCheckinBanner(discordGuild, targetChannel) {
   const data = getAttendanceData();
-  const currentEvent = detectCurrentGeenaEvent();
+  const windowStatus = getGeenaWindowStatus();
+
+  let title = '🐉 ─── CHECK-IN DE PRESENÇA ┃ BOSSES DE GEENA ─── 🐉';
+  let desc = '';
+  let color = Colors.DarkRed;
+
+  if (windowStatus.isOpen) {
+    title = `🟢 ─── CHECK-IN ABERTO ┃ ${windowStatus.name.toUpperCase()} ─── 🟢`;
+    color = Colors.Green;
+    desc =
+      `🔥 **O BOSS DE ${windowStatus.name.toUpperCase()} ESTÁ ACONTECENDO AGORA!**\n\n` +
+      `⏱️ **Janela de Envio:** Aberta até as **${windowStatus.closesAt}** (Restam **${windowStatus.minutesLeft} minutos**)\n` +
+      `📸 **O que fazer:** Tire o print da tela no boss e use o comando \`/presenca\` ou clique abaixo!\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `### 📋 Regras de Envio:\n` +
+      `• **Titular:** Marque como titular se estiver jogando no seu boneco.\n` +
+      `• **Piloto:** Marque como piloto e indique o dono da conta (a presença vai para ele!).\n` +
+      `• **Trava de Tempo:** A janela fecha pontualmente às **${windowStatus.closesAt}**!`;
+  } else {
+    title = '🔴 ─── CHECK-IN FECHADO ┃ AGUARDANDO PRÓXIMO BOSS ─── 🔴';
+    color = Colors.DarkGrey;
+    desc =
+      `No momento nenhuma janela de presença está aberta.\n\n` +
+      `🕒 **Horários dos Bosses:** \`15:00\` • \`19:00\` • \`23:00\` *(Horário de Brasília)*\n` +
+      `⏳ **Próxima Abertura:** às **${windowStatus.nextSpawn}** *(Fica aberto por 30 minutos)*\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `### 📋 Como Funciona:\n` +
+      `1. No nascimento do Boss, o canal libera o envio de prints por **30 minutos**.\n` +
+      `2. O envio é feito via comando **/presenca** ou pelo botão abaixo.\n` +
+      `3. O comprovante é enviado direto para o canal interno da **Liderança da sua Guild** validar!`;
+  }
 
   const embed = new EmbedBuilder()
-    .setTitle('🐉 ─── CHECK-IN DE PRESENÇA ┃ BOSSES DE GEENA ─── 🐉')
-    .setDescription(
-      `Bem-vindo ao canal oficial de **Marcação de Presença de Geena** da Coalizão!\n\n` +
-      `🕒 **Horários dos Bosses:** \`15:00\` • \`19:00\` • \`23:00\` *(Horário de Brasília)*\n` +
-      `⚔️ **Evento Sugerido Agora:** **${currentEvent.name}**\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-      `### 📋 Como Funciona a Presença:\n` +
-      `1. É **obrigatório** o envio de um **Print da tela do jogo** mostrando que você estava no local/conteúdo do boss.\n` +
-      `2. Você pode marcar como **Titular** (seu próprio boneco) ou como **Piloto** (jogando no boneco de outro aliado).\n` +
-      `3. Se for **Piloto**, a presença é creditada integralmente para o **Dono da Conta**.\n` +
-      `4. Sua presença é enviada diretamente para a **Liderança da sua Guild** validar no canal interno privado!\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `📌 *Para marcar, utilize o comando **/presenca** ou clique no botão abaixo:*`
-    )
-    .setColor(Colors.DarkRed)
-    .setImage('https://img.shields.io/badge/GEENA%20ATTENDANCE-ACTIVE-red?style=for-the-badge&logo=discord')
-    .setFooter({ text: 'Apenas membros com tag de guild da Coalizão têm permissão para submeter presença' })
+    .setTitle(title)
+    .setDescription(desc)
+    .setColor(color)
+    .setFooter({ text: `Coalizão Vampir • ${windowStatus.isOpen ? 'Janela Ativa de 30 minutos' : 'Janela Fechada'}` })
     .setTimestamp();
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('btn_start_checkin')
-      .setLabel('📍 Marcar Presença Agora')
-      .setStyle(ButtonStyle.Success)
-      .setEmoji('📸'),
+      .setLabel(windowStatus.isOpen ? '📍 Marcar Presença Agora' : '📍 Marcar Presença (Fechado)')
+      .setStyle(windowStatus.isOpen ? ButtonStyle.Success : ButtonStyle.Secondary)
+      .setEmoji(windowStatus.isOpen ? '📸' : '🔒'),
     new ButtonBuilder()
       .setCustomId('btn_my_attendance')
       .setLabel('🔍 Minhas Presenças')
-      .setStyle(ButtonStyle.Secondary)
+      .setStyle(ButtonStyle.Primary)
       .setEmoji('📊')
   );
 
@@ -559,6 +618,18 @@ async function submitAttendance({
     return {
       success: false,
       error: '❌ Você não possui o cargo de nenhuma das 7 guilds da Coalizão! Apenas membros de guild podem marcar presença.'
+    };
+  }
+
+  // Validação da Janela de 30 minutos (15:00-15:30, 19:00-19:30, 23:00-23:30)
+  const isStaff = submitterMember.permissions.has(PermissionFlagsBits.Administrator) ||
+                  (submitterMember.roles && submitterMember.roles.cache.has(getServerConfig()?.roles?.staff));
+
+  const windowStatus = getGeenaWindowStatus();
+  if (!windowStatus.isOpen && !isStaff) {
+    return {
+      success: false,
+      error: `⛔ **Janela de Check-in Encerrada!**\nAs presenças de Geena só podem ser marcadas durante os **30 minutos** seguintes ao nascimento de cada Boss (\`15:00 às 15:30\`, \`19:00 às 19:30\` e \`23:00 às 23:30\`).\n\n⏳ **Próxima Abertura:** às **${windowStatus.nextSpawn}**.`
     };
   }
 
