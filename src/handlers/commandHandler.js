@@ -1257,12 +1257,48 @@ async function handleCommand(interaction, refreshServerStats) {
         parent: categoryGuild.id
       });
 
+      const chValidacaoGeena = await guild.channels.create({
+        name: '✅・validação-geena',
+        type: ChannelType.GuildText,
+        parent: categoryGuild.id,
+        permissionOverwrites: [
+          { id: everyoneRole.id, deny: [PermissionFlagsBits.ViewChannel] },
+          { id: roleGuild.id, deny: [PermissionFlagsBits.ViewChannel] },
+          { id: liderUser.id, type: 1, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+          ...(staffRoleId ? [{ id: staffRoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }] : []),
+          { id: guild.client.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.ManageMessages] }
+        ]
+      });
+
       const chVozSquad = await guild.channels.create({
         name: '🔊・Squad 1',
         type: ChannelType.GuildVoice,
         parent: categoryGuild.id,
         userLimit: 0
       });
+
+      // Configura permissões nos canais da Coalizão para a nova guild
+      try {
+        const comCatId = config?.categories?.comunidade || '1565129733208014879';
+        const catCom = await guild.channels.fetch(comCatId).catch(() => null);
+        if (catCom) await catCom.permissionOverwrites.edit(roleGuild.id, { ViewChannel: true }).catch(() => {});
+
+        const auditorioId = '1565408234867662931';
+        const chAud = await guild.channels.fetch(auditorioId).catch(() => null);
+        if (chAud) await chAud.permissionOverwrites.edit(roleGuild.id, { ViewChannel: true, Connect: true }).catch(() => {});
+
+        if (config?.channels?.checkinGeena) {
+          const chCheck = await guild.channels.fetch(config.channels.checkinGeena).catch(() => null);
+          if (chCheck) await chCheck.permissionOverwrites.edit(roleGuild.id, { ViewChannel: true, SendMessages: true, AttachFiles: true, ReadMessageHistory: true }).catch(() => {});
+        }
+
+        if (config?.channels?.painelPresencas) {
+          const chP = await guild.channels.fetch(config.channels.painelPresencas).catch(() => null);
+          if (chP) await chP.permissionOverwrites.edit(roleGuild.id, { ViewChannel: true, ReadMessageHistory: true, SendMessages: false }).catch(() => {});
+        }
+      } catch (err) {
+        console.warn('[CRIAR-GUILD] Aviso ao ajustar permissões de coalizão:', err.message);
+      }
 
       const newGuildData = {
         id: guildSlug,
@@ -1273,6 +1309,12 @@ async function handleCommand(interaction, refreshServerStats) {
         categoryId: categoryGuild.id,
         approvalsChannelId: chAprovacoes.id,
         chatChannelId: chChatInterno.id,
+        attendanceValidationChannelId: chValidacaoGeena.id,
+        description: descricao,
+        color: corInput,
+        iconUrl: iconeUrl,
+        createdAt: new Date().toISOString()
+      };
         description: descricao,
         color: corInput,
         iconUrl: iconeUrl,

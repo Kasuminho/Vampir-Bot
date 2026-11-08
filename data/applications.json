@@ -2746,5 +2746,65 @@
     "sobre": "Jogando desde o nightcrows, e tô indo nos jogos e indo aprendendo pouco a pouco",
     "status": "pending",
     "createdAt": "2026-11-08T00:51:25.529Z"
+  },
+  {
+    "id": "app_1794153910346",
+    "guildId": "guild_1793563308822",
+    "userId": "404318366833049607",
+    "userTag": "nobody.5463",
+    "nick": "Nobody",
+    "classe": "Carnage",
+    "horarios": "71",
+    "sobre": "Nenhuma observação informada.",
+    "status": "pending",
+    "createdAt": "2026-11-08T16:05:10.346Z"
+  },
+  {
+    "id": "app_1794159970767",
+    "guildId": "guild_1793491314251",
+    "userId": "95630052955258880",
+    "userTag": "alekao_",
+    "nick": "monopolio",
+    "classe": "Carnage",
+    "horarios": "72, fim de semana quase o dia todo, meio de semana a noite",
+    "sobre": "Nenhuma observação informada.",
+    "status": "pending",
+    "createdAt": "2026-11-08T17:46:10.767Z"
+  },
+  {
+    "id": "app_1794160032115",
+    "guildId": "guild_1793491314251",
+    "userId": "1567234713318330548",
+    "userTag": "tork1991",
+    "nick": "tork",
+    "classe": "viper",
+    "horarios": "lvl 70 jogo o dia todo",
+    "sobre": "mir4 , night crows, odin vahalla, etc",
+    "status": "pending",
+    "createdAt": "2026-11-08T17:47:12.115Z"
+  },
+  {
+    "id": "app_1794160409091",
+    "guildId": "guild_1793563308822",
+    "userId": "482966928370040880",
+    "userTag": "mazeghostx",
+    "nick": "MazeGhostx",
+    "classe": "Carnificina/ Canhão de vidro",
+    "horarios": "lvl 71 / Geralmente a noite",
+    "sobre": "Nenhuma observação informada.",
+    "status": "pending",
+    "createdAt": "2026-11-08T17:53:29.091Z"
+  },
+  {
+    "id": "app_1794162137088",
+    "guildId": "guild_1793491314251",
+    "userId": "576558722273247232",
+    "userTag": "roger2680",
+    "nick": "Triplox",
+    "classe": "Viper/ dano em area",
+    "horarios": "level 75 - todos o dia ate as 01:00 da manha",
+    "sobre": "joguei mir4 e nino kuni",
+    "status": "pending",
+    "createdAt": "2026-11-08T18:22:17.089Z"
   }
 ]

@@ -135,5 +135,22 @@
       "309849117033627649"
     ],
     "attendanceValidationChannelId": "1569013302133268522"
+  },
+  {
+    "id": "guild_1794162213021",
+    "name": "Dinastia",
+    "tag": "DIN",
+    "leaderId": "686215562673520640",
+    "roleId": "1569053812604276807",
+    "categoryId": "1569053816421089310",
+    "approvalsChannelId": "1569053817310552164",
+    "chatChannelId": "1569053818333958165",
+    "attendanceValidationChannelId": "1569054791181668353",
+    "description": "Legião oficial da comunidade Vampir.",
+    "color": "#9B59B6",
+    "iconUrl": null,
+    "createdAt": "2026-11-08T18:23:33.021Z",
+    "officerIds": [],
+    "callerIds": []
   }
 ]
