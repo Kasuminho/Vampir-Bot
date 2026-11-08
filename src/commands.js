@@ -238,13 +238,13 @@ const commands = [
     .setDescription('Marca sua presença no Boss de Geena enviando o print de comprovação')
     .addAttachmentOption(option =>
       option.setName('print')
-        .setDescription('Print da tela do jogo comprovando que você estava no local do Boss')
+        .setDescription('Print da tela do jogo comprovando sua presença (Único campo obrigatório)')
         .setRequired(true)
     )
     .addStringOption(option =>
       option.setName('tipo')
-        .setDescription('Você está jogando na sua própria conta ou como piloto?')
-        .setRequired(true)
+        .setDescription('Tipo de presença (Opcional - Padrão: Titular, seu próprio boneco)')
+        .setRequired(false)
         .addChoices(
           { name: '🛡️ Titular (Meu próprio boneco)', value: 'titular' },
           { name: '🎮 Piloto (Jogando na conta de outro aliado)', value: 'piloto' }

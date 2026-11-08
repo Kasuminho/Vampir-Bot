@@ -1359,7 +1359,7 @@ async function handleCommand(interaction, refreshServerStats) {
   // --- /presenca (Submissão Individual com Print) ---
   if (commandName === 'presenca') {
     const printAttachment = interaction.options.getAttachment('print');
-    const tipo = interaction.options.getString('tipo');
+    const rawTipo = interaction.options.getString('tipo');
     const dono = interaction.options.getUser('dono');
     const evento = interaction.options.getString('evento');
     const observacao = interaction.options.getString('observacao');
@@ -1379,20 +1379,25 @@ async function handleCommand(interaction, refreshServerStats) {
       });
     }
 
-    if (tipo === 'piloto' && !dono) {
+    // Se marcou piloto explicitamente mas não passou o dono
+    if (rawTipo === 'piloto' && !dono) {
       return interaction.reply({
-        content: '❌ Como você marcou como **Piloto**, é obrigatório selecionar o **Dono do Personagem** no campo `dono`!',
+        content: '❌ Como você selecionou **Piloto**, é obrigatório marcar o **Dono do Personagem** no campo `dono`!',
         ephemeral: true
       });
     }
+
+    // Identifica se é piloto: ou marcou piloto com dono, ou indicou um dono diferente de si mesmo
+    const isPilot = rawTipo === 'piloto' || (dono && dono.id !== member.id);
+    const ownerUser = isPilot ? dono : null;
 
     await interaction.deferReply({ ephemeral: true });
 
     const result = await submitAttendance({
       discordGuild: guild,
       submitterMember: member,
-      isPilot: tipo === 'piloto',
-      ownerUser: dono,
+      isPilot,
+      ownerUser,
       printUrl: printAttachment.url,
       eventKey: evento,
       note: observacao

@@ -692,7 +692,7 @@ async function submitAttendance({
   if (!submitterGuild) {
     return {
       success: false,
-      error: '❌ Você não possui o cargo de nenhuma das 7 guilds da Coalizão! Apenas membros de guild podem marcar presença.'
+      error: '❌ Você não possui o cargo de nenhuma das 8 guilds da Coalizão! Apenas membros de guild podem marcar presença.'
     };
   }
 
