@@ -45,6 +45,7 @@ function parseHexColor(input) {
 async function handleCommand(interaction, refreshServerStats) {
   const config = getServerConfig();
   const guild = interaction.guild;
+  const member = interaction.member;
   const { commandName } = interaction;
 
   // --- /ajuda ---
