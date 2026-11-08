@@ -197,11 +197,35 @@ async function handleButton(interaction, refreshServerStats) {
       });
     }
 
-    // Checar se já possui o cargo
+    // Checar se já possui cargo de alguma guild da Coalizão
     const member = interaction.member;
-    if (member.roles.cache.has(targetGuild.roleId)) {
+    const allGuilds = getGuilds();
+    const existingGuild = allGuilds.find(g => member.roles.cache.has(g.roleId));
+
+    if (existingGuild) {
+      if (existingGuild.id === targetGuild.id) {
+        return interaction.reply({
+          content: `⚠️ Você já é integrante da guild **[${targetGuild.tag}] ${targetGuild.name}**!`,
+          ephemeral: true
+        });
+      }
+
+      // Já possui tag de outra guild: BLOQUEIA E INDICA O FLUXO DE TRANSFERÊNCIA
+      const rowTransfer = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('btn_open_transfer_modal')
+          .setLabel('🔄 Solicitar Transferência de Guild')
+          .setStyle(ButtonStyle.Primary)
+      );
+
       return interaction.reply({
-        content: `⚠️ Você já é integrante da guild **[${targetGuild.tag}] ${targetGuild.name}**!`,
+        content:
+          `⛔ **Inscrição Não Permitida!**\n\n` +
+          `Você já é membro registrado da guild **[${existingGuild.tag}] ${existingGuild.name}**.\n` +
+          `Na Coalizão Vampir, **não é permitido aplicar diretamente para outra guild** enquanto você já possui tag de uma legião aliada.\n\n` +
+          `📌 **Para trocar de guild**, você deve utilizar o fluxo oficial de **Transferência de Guild**, onde a liderança da **[${targetGuild.tag}]** e a sua liderança atual alinham a mudança sem atritos.\n\n` +
+          `Clique no botão abaixo para abrir seu pedido de transferência:`,
+        components: [rowTransfer],
         ephemeral: true
       });
     }
@@ -287,6 +311,13 @@ async function handleButton(interaction, refreshServerStats) {
       const candidateMember = await guild.members.fetch(app.userId);
       if (candidateMember) {
         if (targetGuild && targetGuild.roleId) {
+          // Remove automaticamente qualquer outro cargo de guilda da Coalizão para evitar tag dupla
+          const allGuilds = getGuilds();
+          for (const g of allGuilds) {
+            if (g.id !== targetGuild.id && candidateMember.roles.cache.has(g.roleId)) {
+              await candidateMember.roles.remove(g.roleId, 'Remoção de guild anterior na aprovação').catch(() => {});
+            }
+          }
           await candidateMember.roles.add(targetGuild.roleId);
         }
         if (config && config.roles && config.roles.validado) {

@@ -40,6 +40,20 @@ async function handleModal(interaction) {
       return interaction.editReply({ content: '❌ Erro: Guild não identificada no sistema.' }).catch(() => {});
     }
 
+    // Trava: se já possui cargo de outra guild, bloqueia e instrui transferência
+    const member = interaction.member;
+    const allGuilds = getGuilds();
+    const existingGuild = allGuilds.find(g => member.roles.cache.has(g.roleId));
+
+    if (existingGuild && existingGuild.id !== targetGuild.id) {
+      return interaction.editReply({
+        content:
+          `⛔ **Inscrição Não Permitida!**\n\n` +
+          `Você já é membro registrado da guild **[${existingGuild.tag}] ${existingGuild.name}**.\n` +
+          `Para trocar de legião dentro da Coalizão, utilize o fluxo oficial de **Transferência de Guild** no canal comunitário de transferências ou alinhe previamente com sua liderança.`
+      }).catch(() => {});
+    }
+
     const nick = interaction.fields.getTextInputValue('nick');
     const classe = interaction.fields.getTextInputValue('classe');
     const horarios = interaction.fields.getTextInputValue('horarios');

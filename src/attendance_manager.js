@@ -949,6 +949,7 @@ module.exports = {
   setupAttendanceChannels,
   renderOrUpdateCheckinBanner,
   renderOrUpdatePresencePanel,
+  buildValidationCard,
   submitAttendance,
   handleValidationDecision,
   getUserAttendanceSummary

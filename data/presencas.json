@@ -79,9 +79,9 @@
       "pilotUserId": null,
       "ownerUserId": "280224538527268867",
       "ownerUserTag": "3xwxll",
-      "guildId": "guild_1793291080761",
-      "guildTag": "OLP",
-      "guildName": "OLIMPO",
+      "guildId": "guild_1793491314251",
+      "guildTag": "CHP",
+      "guildName": "CHAPA1",
       "printUrl": "https://cdn.discordapp.com/ephemeral-attachments/1566613320650199171/1569053322147664024/image.png?ex=6af20e47&is=6af0bcc7&hm=a8dc99dec5a9650061ac1bdf46c5519b3ad4ac89fd9e1edfb875cc3879a3c399&",
       "note": "",
       "status": "pending",
@@ -89,8 +89,8 @@
       "validatedBy": null,
       "validatedAt": null,
       "rejectionReason": null,
-      "validationMessageId": "1569053327768162325",
-      "validationChannelId": "1569013279940943913"
+      "validationMessageId": "1569115556617920573",
+      "validationChannelId": "1569013300325257266"
     },
     "att_1794162103354_389": {
       "id": "att_1794162103354_389",
@@ -397,13 +397,5 @@
     }
   },
   "panelMessageId": "1569013308621594805",
-  "checkinBannerMessageId": "1569013304515498036",
-  "activeWindowOverride": {
-    "key": "geena_15",
-    "name": "Geena 15:00",
-    "expiresAt": "2026-11-08T19:00:00.000Z",
-    "extendedBy": "Kas",
-    "extendedMinutes": 30,
-    "reason": "Ajuste e cadastro da Dinastia na Coalizão"
-  }
+  "checkinBannerMessageId": "1569013304515498036"
 }
