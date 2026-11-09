@@ -895,7 +895,20 @@ async function handleValidationDecision(interaction, submissionId, decision, rej
 
   // Atualiza o card de validação no canal privado da guild
   const { embed, row } = buildValidationCard(submission);
-  await interaction.update({ embeds: [embed], components: [row] });
+  try {
+    if (interaction.isButton && interaction.isButton()) {
+      await interaction.update({ embeds: [embed], components: [row] });
+    } else if (interaction.message) {
+      await interaction.message.edit({ embeds: [embed], components: [row] });
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.deferUpdate().catch(() => {});
+      }
+    }
+  } catch (err) {
+    if (interaction.message) {
+      await interaction.message.edit({ embeds: [embed], components: [row] }).catch(() => {});
+    }
+  }
 
   // Notifica o player no PV se possível
   try {
