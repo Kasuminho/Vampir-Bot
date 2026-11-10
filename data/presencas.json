@@ -942,6 +942,29 @@
       "rejectionReason": null,
       "validationMessageId": "1569065609407504516",
       "validationChannelId": "1569054791181668353"
+    },
+    "att_1794247671053_366": {
+      "id": "att_1794247671053_366",
+      "eventId": "geena_15_2026-11-09",
+      "eventName": "Geena 15:00",
+      "submitterId": "1567278514191991038",
+      "submitterTag": "mxdsdo89",
+      "isPilot": false,
+      "pilotUserId": null,
+      "ownerUserId": "1567278514191991038",
+      "ownerUserTag": "mxdsdo89",
+      "guildId": "guild_1794162213021",
+      "guildTag": "DIN",
+      "guildName": "Dinastia",
+      "printUrl": "https://cdn.discordapp.com/ephemeral-attachments/1566613320650199171/1569413237139837058/mmexport1794247602262.jpg?ex=6af35d7a&is=6af20bfa&hm=1ab2158882a5b637972419c8dffd19638c05f4205e82c45c7407fec90653825c&",
+      "note": "",
+      "status": "approved",
+      "createdAt": "2026-11-09T18:07:51.053Z",
+      "validatedBy": "686215562673520640",
+      "validatedAt": "2026-11-09T18:23:48.954Z",
+      "rejectionReason": null,
+      "validationMessageId": "1569413245645619253",
+      "validationChannelId": "1569054791181668353"
     }
   },
   "users": {
@@ -1070,12 +1093,12 @@
       "userTag": "mxdsdo89",
       "guildId": "guild_1794162213021",
       "guildTag": "DIN",
-      "totalPresencas": 1,
-      "asTitular": 1,
+      "totalPresencas": 2,
+      "asTitular": 2,
       "asPilot": 0,
       "timesPiloting": 0,
       "lastEvent": "Geena 15:00",
-      "lastDate": "2026-11-08T22:10:25.000Z"
+      "lastDate": "2026-11-09T18:23:48.954Z"
     },
     "1564420006328934477": {
       "userId": "1564420006328934477",
