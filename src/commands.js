@@ -344,7 +344,43 @@ const commands = [
   new SlashCommandBuilder()
     .setName('painel-overlay')
     .setDescription('Envia o botão fixo de acesso ao Overlay no canal atual (Apenas Staff)')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+
+  new SlashCommandBuilder()
+    .setName('call')
+    .setDescription('Aloca uma guilda ou toda a coalizão para um Boss específico')
+    .addStringOption(opt =>
+      opt.setName('guilda')
+        .setDescription('Tag da Guilda (ou TODAS para Call Geral)')
+        .setRequired(true)
+        .addChoices(
+          { name: '👑 TODAS AS GUILDAS (Call Geral)', value: 'ALL' },
+          { name: '🏰 [DIN] Dinastia', value: 'DIN' },
+          { name: '🏰 [NOM] No Mercy', value: 'NOM' },
+          { name: '🏰 [OLP] OLIMPO', value: 'OLP' },
+          { name: '🏰 [NGF] NightFall', value: 'NGF' },
+          { name: '🏰 [KTB] Kontrabandz', value: 'KTB' },
+          { name: '🏰 [AFT] Aftermath', value: 'AFT' },
+          { name: '🏰 [CHP] CHAPA1', value: 'CHP' },
+          { name: '🏰 [FSN] Fusion', value: 'FSN' }
+        )
+    )
+    .addIntegerOption(opt =>
+      opt.setName('boss')
+        .setDescription('Número do Boss (1 a 6)')
+        .setRequired(true)
+        .setMinValue(1)
+        .setMaxValue(6)
+    )
+    .addIntegerOption(opt =>
+      opt.setName('mapa')
+        .setDescription('Qual mapa / andar (1 ou 2)')
+        .setRequired(false)
+        .addChoices(
+          { name: 'Andar 1 (Mapa 1: 3 Bosses)', value: 1 },
+          { name: 'Andar 2 (Mapa 2: 6 Bosses)', value: 2 }
+        )
+    )
 ];
 
 module.exports = { commands };

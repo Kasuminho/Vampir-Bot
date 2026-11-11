@@ -30,6 +30,7 @@ const CLIENT_SECRET = process.env.CLIENT_SECRET || process.env.DISCORD_TOKEN || 
 const TUNNEL_LOG_PATH = process.env.TUNNEL_LOG_PATH || '/shared/tunnel.log';
 
 let currentPublicUrl = process.env.PUBLIC_URL || `http://localhost:${PORT}`;
+let ioInstance = null;
 
 // --- ESTADO INICIAL DA GUERRA ---
 let battleState = {
@@ -224,6 +225,7 @@ function startOverlayService(client) {
   const io = new Server(server, {
     cors: { origin: '*', methods: ['GET', 'POST'] }
   });
+  ioInstance = io;
 
   app.use(cors());
   app.use(express.json());
@@ -272,16 +274,18 @@ function startOverlayService(client) {
       io.emit('map_switched', { mapId, author: socket.user.username });
     });
 
-    // Call de Guilda
-    socket.on('set_guild_call', ({ guildId, bossId }) => {
+    // Call de Guilda (com suporte a Mapa / Andar)
+    socket.on('set_guild_call', ({ guildId, bossId, mapId }) => {
       const canManage = socket.user.canCallGeneral || (socket.user.canCallGuild && socket.user.guildId === guildId);
       if (!canManage) return socket.emit('error_msg', 'Sem permissão para esta guilda.');
 
-      battleState.assignments[guildId] = bossId;
+      const targetMap = mapId || (bossId >= 4 ? 2 : battleState.activeMap);
+      battleState.assignments[guildId] = { bossId, mapId: targetMap };
+
       io.emit('state_updated', {
         assignments: battleState.assignments,
         combatModes: battleState.combatModes,
-        action: `[${guildId}] Call atualizada ➔ Boss ${bossId}`
+        action: `[${guildId}] Call atualizada ➔ Boss ${bossId} (Mapa ${targetMap})`
       });
     });
 
@@ -304,14 +308,15 @@ function startOverlayService(client) {
     });
 
     // Call Geral / All-In
-    socket.on('trigger_call_geral', ({ bossId, bossName }) => {
+    socket.on('trigger_call_geral', ({ bossId, bossName, mapId }) => {
       if (!socket.user.canCallGeneral) return socket.emit('error_msg', 'Apenas Comandantes podem dar Call Geral.');
 
+      const targetMap = mapId || (bossId >= 4 ? 2 : battleState.activeMap);
       Object.keys(battleState.assignments).forEach(g => {
-        battleState.assignments[g] = bossId;
+        battleState.assignments[g] = { bossId, mapId: targetMap };
       });
 
-      battleState.callGeral = { bossId, bossName, author: socket.user.username };
+      battleState.callGeral = { bossId, bossName, mapId: targetMap, author: socket.user.username };
 
       io.emit('call_geral_active', {
         callGeral: battleState.callGeral,
@@ -334,13 +339,26 @@ function startOverlayService(client) {
       battleState.deadBosses[bossId] = respawnTime;
 
       Object.keys(battleState.assignments).forEach(g => {
-        if (battleState.assignments[g] === bossId) battleState.assignments[g] = null;
+        const asg = battleState.assignments[g];
+        if (asg && asg.bossId === bossId) battleState.assignments[g] = null;
       });
 
       io.emit('boss_killed', {
         bossId,
         respawnTime,
         assignments: battleState.assignments
+      });
+    });
+
+    // Resetar apenas Respawns dos Bosses
+    socket.on('reset_respawns', () => {
+      if (!socket.user.canCallGeneral && !socket.user.canCallGuild) return;
+      battleState.deadBosses = {};
+      io.emit('respawns_reset');
+      io.emit('state_updated', {
+        assignments: battleState.assignments,
+        combatModes: battleState.combatModes,
+        action: `${socket.user.username} resetou o respawn dos bosses.`
       });
     });
 
@@ -363,8 +381,37 @@ function startOverlayService(client) {
   });
 }
 
+function executeCommandCall({ guildTag, bossId, mapId, author }) {
+  const targetMap = mapId || (bossId >= 4 ? 2 : battleState.activeMap);
+
+  if (guildTag === 'ALL') {
+    Object.keys(battleState.assignments).forEach(g => {
+      battleState.assignments[g] = { bossId, mapId: targetMap };
+    });
+    battleState.callGeral = { bossId, bossName: `Boss ${bossId}`, mapId: targetMap, author };
+    if (ioInstance) {
+      ioInstance.emit('call_geral_active', {
+        callGeral: battleState.callGeral,
+        assignments: battleState.assignments
+      });
+    }
+    return `🚨 **Call Geral Disparada:** Todas as guildas para o Boss ${bossId} (Mapa ${targetMap}) por **${author}**!`;
+  }
+
+  battleState.assignments[guildTag] = { bossId, mapId: targetMap };
+  if (ioInstance) {
+    ioInstance.emit('state_updated', {
+      assignments: battleState.assignments,
+      combatModes: battleState.combatModes,
+      action: `[${guildTag}] Call enviada por ${author} ➔ Boss ${bossId} (Mapa ${targetMap})`
+    });
+  }
+  return `✅ **Call Registrada:** Guilda \`[${guildTag}]\` direcionada para o Boss ${bossId} (Mapa ${targetMap})!`;
+}
+
 module.exports = {
   startOverlayService,
   createAuthResponse,
-  renderOverlayPanel
+  renderOverlayPanel,
+  executeCommandCall
 };

@@ -33,7 +33,7 @@ const {
   extendGeenaWindow,
   renderOrUpdateCheckinBanner
 } = require('../attendance_manager');
-const { createAuthResponse, renderOverlayPanel } = require('../services/overlayService');
+const { createAuthResponse, renderOverlayPanel, executeCommandCall } = require('../services/overlayService');
 
 function parseHexColor(input) {
   if (!input) return '#9B59B6';
@@ -1635,6 +1635,22 @@ async function handleCommand(interaction, refreshServerStats) {
     }
     await renderOverlayPanel(interaction.channel);
     return interaction.reply({ content: '✅ Painel do Overlay Tático enviado com sucesso neste canal!', ephemeral: true });
+  }
+
+  // --- /call ---
+  if (commandName === 'call') {
+    const guilda = interaction.options.getString('guilda');
+    const boss = interaction.options.getInteger('boss');
+    const mapa = interaction.options.getInteger('mapa');
+
+    const msg = executeCommandCall({
+      guildTag: guilda,
+      bossId: boss,
+      mapId: mapa,
+      author: member.displayName || interaction.user.username
+    });
+
+    return interaction.reply({ content: msg });
   }
 }
 

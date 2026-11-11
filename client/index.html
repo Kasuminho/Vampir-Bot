@@ -174,7 +174,7 @@
           { id: 1, name: "Avok", lvl: 56, x: 74.5, y: 22.0 },
           { id: 2, name: "Regan", lvl: 56, x: 13.0, y: 44.0 },
           { id: 3, name: "Mildis", lvl: 56, x: 61.5, y: 87.0 },
-          { id: 0, name: "Centro", lvl: 62, x: 50.0, y: 50.0 }
+          
         ]
       },
       2: {
@@ -187,7 +187,7 @@
           { id: 4, name: "Eligo", lvl: 60, x: 88.0, y: 45.5 },
           { id: 5, name: "Lussem", lvl: 60, x: 35.8, y: 86.2 },
           { id: 6, name: "Fera Gazoth", lvl: 62, x: 49.5, y: 82.5 },
-          { id: 0, name: "Centro", lvl: 62, x: 50.0, y: 50.0 }
+          
         ]
       }
     };
@@ -212,6 +212,8 @@
     let deadBosses = {};
     let callGeral = null;
     let activePings = [];
+    let isCallGeralPrimed = false;
+    let selectedGuildForDispatch = null;
 
     // --- AUDIO SYNTHESIS ---
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -317,6 +319,8 @@
         document.getElementById('callGeralBanner').classList.add('hidden');
         renderAll();
       });
+
+      socket.on('respawns_reset', () => { deadBosses = {}; renderNodes(); });
 
       socket.on('boss_killed', (data) => {
         deadBosses[data.bossId] = data.respawnTime;
@@ -429,19 +433,61 @@
       });
     }
 
+    
+    function openSettingsModal() {
+      const el = document.getElementById('settingsModal');
+      if (el) el.classList.remove('hidden');
+    }
+
+    function closeSettingsModal() {
+      const el = document.getElementById('settingsModal');
+      if (el) el.classList.add('hidden');
+    }
+
+    function resetRespawns() {
+      if (socket) {
+        socket.emit('reset_respawns');
+      }
+      deadBosses = {};
+      renderNodes();
+      closeSettingsModal();
+      logEvent('🔄 Todos os respawns de bosses foram resetados.');
+    }
+
+    function selectGuildForDispatch(guildId) {
+      if (currentUser && (currentUser.canCallGeneral || currentUser.canCallGuild)) {
+        selectedGuildForDispatch = (selectedGuildForDispatch === guildId) ? null : guildId;
+        if (selectedGuildForDispatch) {
+          playCallSound();
+          logEvent(`🎯 Guilda [${selectedGuildForDispatch}] selecionada. Clique no Boss para alocar.`);
+        }
+        renderDispatchList();
+      }
+    }
+
     // --- CALL EXECUTION ---
     function executeBossCall(bossId) {
       if (bossId >= 4 && currentMapId === 1) {
         applyMap(2);
       }
+
       const bosses = MAP_DATA[currentMapId].bosses;
       const boss = bosses.find(b => b.id === bossId);
-      if (boss && currentUser) {
-        const guildId = currentUser.guildId || 'NOM';
-        if (socket) {
-          socket.emit('set_guild_call', { guildId, bossId: boss.id });
+      if (!boss) return;
+
+      if (isCallGeralPrimed) {
+        isCallGeralPrimed = false;
+        if (socket && currentUser && currentUser.canCallGeneral) {
+          socket.emit('trigger_call_geral', { bossId: boss.id, bossName: boss.name, mapId: currentMapId });
         }
+        return;
+      }
+
+      const guildToAssign = selectedGuildForDispatch || (currentUser ? currentUser.guildId : 'NOM');
+      if (socket && currentUser) {
+        socket.emit('set_guild_call', { guildId: guildToAssign, bossId: boss.id, mapId: currentMapId });
         playCallSound();
+        selectedGuildForDispatch = null;
       }
     }
 
@@ -534,7 +580,13 @@
       const bosses = MAP_DATA[currentMapId].bosses;
 
       bosses.forEach(boss => {
-        const assignedGuildKeys = Object.keys(assignments).filter(k => assignments[k] === boss.id);
+        const assignedGuildKeys = Object.keys(assignments).filter(k => {
+          const asg = assignments[k];
+          if (!asg) return false;
+          const bId = (typeof asg === 'object') ? asg.bossId : asg;
+          const mId = (typeof asg === 'object') ? asg.mapId : (bId >= 4 ? 2 : 1);
+          return bId === boss.id && mId === currentMapId;
+        });
         const hasAssignment = assignedGuildKeys.length > 0;
         const isDead = deadBosses[boss.id] && deadBosses[boss.id] > Date.now();
 
@@ -602,18 +654,28 @@
       const bosses = MAP_DATA[currentMapId].bosses;
 
       Object.values(GUILDS).forEach(guild => {
-        const targetBossId = assignments[guild.id];
-        const targetBoss = bosses.find(b => b.id === targetBossId);
+        const asg = assignments[guild.id];
+        let targetBoss = null;
+        let targetMapId = 1;
+        if (asg) {
+          const bId = (typeof asg === 'object') ? asg.bossId : asg;
+          targetMapId = (typeof asg === 'object') ? asg.mapId : (bId >= 4 ? 2 : 1);
+          const mapBosses = (MAP_DATA[targetMapId] || MAP_DATA[1]).bosses;
+          targetBoss = mapBosses.find(b => b.id === bId);
+        }
+
         const isPvp = combatModes[guild.id] === 'PVP';
+        const isSelected = selectedGuildForDispatch === guild.id;
 
         const row = document.createElement('div');
-        row.className = 'flex items-center justify-between p-1.5 rounded-lg border border-slate-800 bg-slate-950/60 font-mono text-[10px]';
+        row.className = `flex items-center justify-between p-1.5 rounded-lg border transition-all cursor-pointer font-mono text-[10px] ${isSelected ? 'border-amber-400 bg-amber-950/40 ring-2 ring-amber-400/50' : 'border-slate-800 bg-slate-950/60 hover:border-slate-700'}`;
+        row.onclick = () => selectGuildForDispatch(guild.id);
 
-        let targetHtml = `<span class="text-slate-600 italic">Livre...</span>`;
+        let targetHtml = `<span class="text-slate-600 italic">${isSelected ? '👉 Clique no Boss...' : 'Livre...'}</span>`;
         if (targetBoss) {
           targetHtml = `
             <span class="font-black text-white px-1.5 py-0.5 rounded shadow flex items-center gap-1" style="background-color: ${guild.color}">
-              ${isPvp ? '⚔️ PVP' : '🎯 BOSS'} ➔ ${targetBoss.id === 0 ? 'CENTRO' : targetBoss.name}
+              ${isPvp ? '⚔️' : '🎯'} B${targetBoss.id}: ${targetBoss.name} [M${targetMapId}]
             </span>
           `;
         }
