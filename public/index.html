@@ -343,7 +343,7 @@
       document.getElementById('userBadge').innerHTML = `
         👤 <strong>${currentUser.username}</strong> • ${currentUser.guildName} • 
         <span class="${currentUser.canCallGeneral ? 'text-amber-400 font-bold' : (currentUser.canCallGuild ? 'text-emerald-400 font-bold' : 'text-slate-400')}">
-          ${currentUser.canCallGeneral ? '👑 Comandante' : (currentUser.canCallGuild ? '🛡️ Líder de Guild' : '⚔️ Membro')}
+          ${currentUser.canCallGeneral ? '👑 Comandante de Guerra' : (currentUser.canCallGuild ? '🛡️ Líder de Guild' : '⚔️ Membro')}
         </span>
       `;
 
@@ -623,7 +623,7 @@
 
       if (char === '*') {
         if (!currentUser || !currentUser.canCallGeneral) {
-          logEvent('⚠️ Apenas o Comandante Geral pode usar Call Geral (*)');
+          logEvent('⚠️ Apenas o Comandante de Guerra pode usar Call Geral (*)');
           playTone(200, 0.2, 'sawtooth');
           return;
         }

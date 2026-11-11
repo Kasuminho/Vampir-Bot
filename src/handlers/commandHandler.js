@@ -33,7 +33,7 @@ const {
   extendGeenaWindow,
   renderOrUpdateCheckinBanner
 } = require('../attendance_manager');
-const { createAuthResponse, renderOverlayPanel, executeCommandCall } = require('../services/overlayService');
+const { createAuthResponse, renderOverlayPanel, executeCommandCall, evaluateMemberPermissions } = require('../services/overlayService');
 const { activateLockdown, deactivateLockdown, getLockdownStatus, getNextGeenaEvent } = require('../services/lockdownService');
 
 function parseHexColor(input) {
@@ -1640,9 +1640,27 @@ async function handleCommand(interaction, refreshServerStats) {
 
   // --- /call ---
   if (commandName === 'call') {
+    const perm = evaluateMemberPermissions(member);
     const guilda = interaction.options.getString('guilda');
     const boss = interaction.options.getInteger('boss');
     const mapa = interaction.options.getInteger('mapa');
+
+    if (guilda === 'ALL') {
+      if (!perm.canCallGeneral) {
+        return interaction.reply({
+          content: '❌ **Permissão Negada:** Apenas quem possui o cargo **Comandante de Guerra** pode disparar o ALL-IN para todas as guildas.',
+          ephemeral: true
+        });
+      }
+    } else {
+      const isUserGuild = perm.userGuild && perm.userGuild.tag.toUpperCase() === guilda.toUpperCase();
+      if (!perm.canCallGeneral && (!perm.canCallGuild || !isUserGuild)) {
+        return interaction.reply({
+          content: `❌ **Permissão Negada:** Você só pode enviar ordens para a sua própria guilda (${perm.userGuild ? `\`[${perm.userGuild.tag}]\`` : 'nenhuma'}). Para movimentar outras guildas é necessário o cargo **Comandante de Guerra**.`,
+          ephemeral: true
+        });
+      }
+    }
 
     const msg = executeCommandCall({
       guildTag: guilda,

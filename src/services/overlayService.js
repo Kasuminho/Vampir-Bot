@@ -17,6 +17,7 @@ const { getServerConfig, getGuilds } = require('../data_manager');
 
 // --- ROLES BASE (VAMPIR - RUST 2) ---
 const ROLES = {
+  WAR_COMMANDER: '1570146588893122621',  // Comandante de Guerra
   STAFF_ADMIN: '1565129720444485662',     // [🛡️] Staff / Admin
   SHOUT_CALLER: '1566152015795458120',    // [📢] Shout Caller
   GUILD_LEADER: '1565129721606574103',    // [👑] Líder de Guild
@@ -83,12 +84,16 @@ function evaluateMemberPermissions(member) {
   const roleIds = member.roles.cache.map(r => r.id);
   const guilds = getGuilds();
 
-  // 1. Staff / Shout Caller (Call Geral / All-In)
+  // 1. Comandante de Guerra (Apenas Kasumo e membros com o cargo exclusivo 'Comandante de Guerra')
+  const isOwnerOrKasumo = member.id === '273600843251712020' || (member.guild && member.guild.ownerId === member.id);
+  const isWarCommander = roleIds.includes(ROLES.WAR_COMMANDER) || isOwnerOrKasumo;
+  const canCallGeneral = isWarCommander;
+
+  // 2. Staff e Shout Caller
   const isStaff = roleIds.includes(ROLES.STAFF_ADMIN) || member.permissions.has(PermissionFlagsBits.Administrator);
   const isShoutCaller = roleIds.includes(ROLES.SHOUT_CALLER);
-  const canCallGeneral = isStaff || isShoutCaller;
 
-  // 2. Identificar a Guilda do Membro e cargos de liderança
+  // 3. Identificar a Guilda do Membro e cargos de liderança
   let userGuild = null;
   let isLeader = roleIds.includes(ROLES.GUILD_LEADER);
   let isOfficer = roleIds.includes(ROLES.GUILD_OFFICER);
@@ -109,13 +114,14 @@ function evaluateMemberPermissions(member) {
 
   const canCallGuild = isLeader || isOfficer || canCallGeneral;
   const isValidated = roleIds.includes(ROLES.VALIDATED_PLAYER);
-  const isAllowed = isStaff || isShoutCaller || isValidated || (userGuild !== null);
+  const isAllowed = isWarCommander || isStaff || isShoutCaller || isValidated || (userGuild !== null);
 
   return {
     isAllowed,
     canCallGeneral,
     canCallGuild,
     userGuild,
+    isWarCommander,
     isStaff,
     isLeader,
     isOfficer
@@ -177,7 +183,7 @@ function createAuthResponse(member) {
     )
     .addFields(
       { name: '🏰 Sua Legião', value: perm.userGuild ? `[${perm.userGuild.tag}] ${perm.userGuild.name}` : 'Membro da Coalizão', inline: true },
-      { name: '👑 Permissão de Call', value: perm.canCallGeneral ? '👑 Call Geral (All-In)' : (perm.canCallGuild ? '🛡️ Call da Guilda' : '⚔️ Visualização'), inline: true }
+      { name: '👑 Permissão de Call', value: perm.canCallGeneral ? '👑 Comandante de Guerra (All-In)' : (perm.canCallGuild ? '🛡️ Call da Guilda' : '⚔️ Visualização'), inline: true }
     )
     .setColor(perm.canCallGeneral ? 0xf1c40f : (perm.canCallGuild ? 0x2ecc71 : 0x3498db))
     .setFooter({ text: 'Vampir Tactical Overlay • Sistema de Coordenação GvG' });
@@ -413,5 +419,6 @@ module.exports = {
   startOverlayService,
   createAuthResponse,
   renderOverlayPanel,
-  executeCommandCall
+  executeCommandCall,
+  evaluateMemberPermissions
 };
