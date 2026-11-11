@@ -28,7 +28,6 @@
     .animate-ripple {
       animation: pingRipple 1.2s infinite ease-out;
     }
-    /* Draggable window region */
     .titlebar-drag {
       -webkit-app-region: drag;
     }
@@ -123,7 +122,7 @@
 
         <!-- Quick Hotkey Guide -->
         <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5 text-[10px] text-slate-300 space-y-1 leading-tight">
-          <div class="font-bold text-slate-400 uppercase text-[9px] mb-1">⌨️ Atalhos Rápidos (Numpad):</div>
+          <div class="font-bold text-slate-400 uppercase text-[9px] mb-1">⌨️ Atalhos Rápidos (Numpad ou Teclado):</div>
           <div><kbd class="px-1 bg-slate-800 rounded text-cyan-300 font-bold">1-6</kbd> Alocar Boss correspondente</div>
           <div><kbd class="px-1 bg-slate-800 rounded text-cyan-300 font-bold">0</kbd> Alocar Boss Central</div>
           <div><kbd class="px-1 bg-slate-800 rounded text-emerald-300 font-bold">/</kbd> Alternar Foco: Boss / PVP</div>
@@ -207,11 +206,12 @@
     let socket = null;
     let currentUser = null;
     let currentMapId = 1;
-    let combatMode = "BOSS"; // "BOSS" ou "PVP"
+    let combatMode = "BOSS";
     let assignments = {};
-    let combatModes = {}; // { guildId: 'BOSS' | 'PVP' }
+    let combatModes = {};
     let deadBosses = {};
     let callGeral = null;
+    let activePings = [];
 
     // --- AUDIO SYNTHESIS ---
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -272,9 +272,10 @@
 
       socket.on('init_state', (data) => {
         currentUser = data.user;
-        currentMapId = data.battleState.activeMap;
-        assignments = data.battleState.assignments;
-        deadBosses = data.battleState.deadBosses;
+        currentMapId = data.battleState.activeMap || 1;
+        assignments = data.battleState.assignments || {};
+        combatModes = data.battleState.combatModes || {};
+        deadBosses = data.battleState.deadBosses || {};
         callGeral = data.battleState.callGeral;
 
         document.getElementById('userInfo').innerHTML = `
@@ -300,7 +301,7 @@
       });
 
       socket.on('map_ping', (ping) => {
-        showPingOnMap(ping);
+        addPing(ping);
       });
 
       socket.on('call_geral_active', (data) => {
@@ -353,10 +354,9 @@
     // --- MAP TOGGLE ---
     function toggleMap() {
       const nextMap = currentMapId === 1 ? 2 : 1;
+      applyMap(nextMap);
       if (currentUser && currentUser.canCallGeneral && socket) {
         socket.emit('switch_map', nextMap);
-      } else {
-        applyMap(nextMap);
       }
     }
 
@@ -365,71 +365,117 @@
       document.getElementById('mapImg').src = MAP_DATA[mapId].src;
       document.getElementById('activeMapBadge').innerText = `${MAP_DATA[mapId].name} (Numpad +)`;
       renderNodes();
+      renderPings();
     }
 
-    // --- PING SYSTEM (CLICK ON MAP) ---
+    // --- PING SYSTEM (FILTERED PER MAP) ---
     function handleMapClick(e) {
+      if (e.target.closest('.boss-node') || e.target.closest('.group')) return;
+
       const rect = e.currentTarget.getBoundingClientRect();
       const x = ((e.clientX - rect.left) / rect.width) * 100;
       const y = ((e.clientY - rect.top) / rect.height) * 100;
 
       const ping = {
+        id: 'ping_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+        mapId: currentMapId,
         x: Math.round(x * 10) / 10,
         y: Math.round(y * 10) / 10,
         author: currentUser ? currentUser.username : 'Líder',
         guild: currentUser ? currentUser.guildId : 'NOM',
-        type: 'enemy'
+        type: 'enemy',
+        expiresAt: Date.now() + 12000
       };
 
       if (socket) {
         socket.emit('map_ping', ping);
       }
-      showPingOnMap(ping);
+      addPing(ping);
     }
 
-    function showPingOnMap(ping) {
+    function addPing(ping) {
       playPvpAlert();
+      activePings.push(ping);
+      renderPings();
+    }
+
+    function renderPings() {
       const layer = document.getElementById('pingsLayer');
-      const el = document.createElement('div');
-      el.className = 'absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none z-30';
-      el.style.left = `${ping.x}%`;
-      el.style.top = `${ping.y}%`;
+      if (!layer) return;
+      layer.innerHTML = '';
+      const now = Date.now();
+      activePings = activePings.filter(p => p.expiresAt > now);
 
-      el.innerHTML = `
-        <div class="relative flex items-center justify-center">
-          <div class="w-8 h-8 rounded-full bg-red-600/60 animate-ripple absolute"></div>
-          <div class="w-5 h-5 rounded-full bg-red-600 border-2 border-white shadow-[0_0_15px_red] flex items-center justify-center text-[10px]">⚠️</div>
-        </div>
-        <div class="mt-1 px-1.5 py-0.5 rounded bg-black/90 border border-red-500 text-[9px] font-black uppercase text-red-300 whitespace-nowrap shadow-xl">
-          INIMIGO! (${ping.author})
-        </div>
-      `;
+      activePings.forEach(ping => {
+        // FILTRADO ESTREITAMENTE POR MAPA!
+        if (ping.mapId !== currentMapId) return;
 
-      layer.appendChild(el);
-      setTimeout(() => {
-        if (el.parentNode) el.parentNode.removeChild(el);
-      }, 10000);
+        const el = document.createElement('div');
+        el.className = 'absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none z-30';
+        el.style.left = `${ping.x}%`;
+        el.style.top = `${ping.y}%`;
+
+        el.innerHTML = `
+          <div class="relative flex items-center justify-center">
+            <div class="w-8 h-8 rounded-full bg-red-600/60 animate-ripple absolute"></div>
+            <div class="w-5 h-5 rounded-full bg-red-600 border-2 border-white shadow-[0_0_15px_red] flex items-center justify-center text-[10px]">⚠️</div>
+          </div>
+          <div class="mt-1 px-1.5 py-0.5 rounded bg-black/90 border border-red-500 text-[9px] font-black uppercase text-red-300 whitespace-nowrap shadow-xl">
+            INIMIGO! (${ping.author})
+          </div>
+        `;
+
+        layer.appendChild(el);
+      });
     }
 
-    // --- CALL GERAL ---
-    function applyCallGeral(cg) {
-      document.getElementById('callGeralText').innerText = `🚨 ALL-IN ALIANÇA: TODOS CONVERGINDO PARA O BOSS ${cg.bossId} (${cg.bossName})`;
-      document.getElementById('callGeralBanner').classList.remove('hidden');
-    }
-
-    function clearCallGeral() {
-      if (socket && currentUser && currentUser.canCallGeneral) {
-        socket.emit('clear_call_geral');
+    // --- CALL EXECUTION ---
+    function executeBossCall(bossId) {
+      if (bossId >= 4 && currentMapId === 1) {
+        applyMap(2);
+      }
+      const bosses = MAP_DATA[currentMapId].bosses;
+      const boss = bosses.find(b => b.id === bossId);
+      if (boss && currentUser) {
+        const guildId = currentUser.guildId || 'NOM';
+        if (socket) {
+          socket.emit('set_guild_call', { guildId, bossId: boss.id });
+        }
+        playCallSound();
       }
     }
+
+    // Keyboard Listener
+    window.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+      const key = e.key;
+      if (key >= '0' && key <= '9') {
+        executeBossCall(parseInt(key, 10));
+      } else if (key === '-' || key === 'NumpadSubtract') {
+        if (socket && currentUser) {
+          const currentTarget = assignments[currentUser.guildId || 'NOM'];
+          if (currentTarget !== null && currentTarget !== undefined) {
+            socket.emit('mark_boss_dead', { bossId: currentTarget, respawnSeconds: 15 * 60 + 31 });
+          }
+        }
+      } else if (key === '*' || key === 'NumpadMultiply') {
+        if (socket && currentUser && currentUser.canCallGeneral) {
+          const currentTarget = assignments[currentUser.guildId || 'NOM'] || 1;
+          const boss = MAP_DATA[currentMapId].bosses.find(b => b.id === currentTarget);
+          socket.emit('trigger_call_geral', { bossId: currentTarget, bossName: boss ? boss.name : 'Alvo' });
+        }
+      } else if (key === '+' || key === 'NumpadAdd') {
+        toggleMap();
+      } else if (key === '/' || key === 'NumpadDivide') {
+        toggleCombatMode();
+      }
+    });
 
     // --- GLOBAL ELECTRON HOTKEY DISPATCH ---
     if (ipc) {
       ipc.on('hotkey_boss', (event, bossId) => {
-        if (socket && currentUser) {
-          const guildId = currentUser.guildId || 'NOM';
-          socket.emit('set_guild_call', { guildId, bossId });
-        }
+        executeBossCall(bossId);
       });
 
       ipc.on('hotkey_toggle_pvp', () => {
@@ -478,6 +524,7 @@
     function renderAll() {
       renderNodes();
       renderDispatchList();
+      renderPings();
     }
 
     function renderNodes() {
@@ -492,7 +539,7 @@
         const isDead = deadBosses[boss.id] && deadBosses[boss.id] > Date.now();
 
         const node = document.createElement('div');
-        node.className = 'absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-auto cursor-pointer transition-all duration-200';
+        node.className = 'boss-node absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-auto cursor-pointer transition-all duration-200 z-20';
         node.style.left = `${boss.x}%`;
         node.style.top = `${boss.y}%`;
 
@@ -528,7 +575,7 @@
         }
 
         node.innerHTML = `
-          <div class="flex flex-col items-center group" onclick="if(socket && currentUser){ socket.emit('set_guild_call', { guildId: currentUser.guildId||'NOM', bossId: ${boss.id} }); }">
+          <div class="flex flex-col items-center group" onclick="event.stopPropagation(); executeBossCall(${boss.id});">
             <div class="flex items-center gap-1 mb-1">
               ${badgeBadges}
             </div>
@@ -583,7 +630,6 @@
       });
     }
 
-    // Modal & Window controls
     function openSettings() {
       document.getElementById('inputServerUrl').value = localStorage.getItem('vampir_server_url') || '';
       document.getElementById('inputToken').value = localStorage.getItem('vampir_token') || '';
@@ -619,6 +665,15 @@
     } else {
       openSettings();
     }
+
+    setInterval(() => {
+      let hasDead = false;
+      Object.keys(deadBosses).forEach(id => {
+        if (deadBosses[id] > Date.now()) hasDead = true;
+      });
+      if (hasDead) renderNodes();
+      renderPings();
+    }, 1000);
   </script>
 </body>
 </html>
