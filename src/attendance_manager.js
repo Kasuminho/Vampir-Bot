@@ -10,6 +10,8 @@ const {
   PermissionFlagsBits
 } = require('discord.js');
 const { getServerConfig, getGuilds, saveGuilds } = require('./data_manager');
+const { isConnected } = require('./database/db');
+const attendanceRepo = require('./database/attendance_repo');
 
 const ATTENDANCE_FILE = path.join(__dirname, '..', 'data', 'presencas.json');
 const CONFIG_FILE = path.join(__dirname, '..', 'data', 'server_config.json');
@@ -20,13 +22,32 @@ const GEENA_SCHEDULE = [
   { key: 'geena_23', name: 'Geena 23:00', hour: 23 }
 ];
 
+let cachedAttendanceData = null;
+
+async function initAttendanceManager() {
+  if (isConnected()) {
+    try {
+      const dbState = await attendanceRepo.loadAttendanceState();
+      if (dbState && (Object.keys(dbState.submissions).length > 0 || Object.keys(dbState.users).length > 0)) {
+        cachedAttendanceData = dbState;
+        fs.writeFileSync(ATTENDANCE_FILE, JSON.stringify(cachedAttendanceData, null, 2), 'utf-8');
+        console.log(`[ATTENDANCE] PostgreSQL sincronizado: ${Object.keys(dbState.submissions).length} submissões, ${Object.keys(dbState.users).length} usuários.`);
+      }
+    } catch (err) {
+      console.error('[ATTENDANCE] Erro ao carregar do PostgreSQL:', err.message);
+    }
+  }
+}
+
 /**
  * Lê o arquivo de presenças
  */
 function getAttendanceData() {
+  if (cachedAttendanceData) return cachedAttendanceData;
   if (fs.existsSync(ATTENDANCE_FILE)) {
     try {
-      return JSON.parse(fs.readFileSync(ATTENDANCE_FILE, 'utf-8'));
+      cachedAttendanceData = JSON.parse(fs.readFileSync(ATTENDANCE_FILE, 'utf-8'));
+      return cachedAttendanceData;
     } catch {}
   }
   return {
@@ -41,7 +62,22 @@ function getAttendanceData() {
  * Salva o arquivo de presenças
  */
 function saveAttendanceData(data) {
-  fs.writeFileSync(ATTENDANCE_FILE, JSON.stringify(data, null, 2), 'utf-8');
+  cachedAttendanceData = data;
+  try {
+    fs.writeFileSync(ATTENDANCE_FILE, JSON.stringify(data, null, 2), 'utf-8');
+  } catch {}
+
+  if (isConnected()) {
+    if (data.panelMessageId !== undefined) {
+      attendanceRepo.saveAttendanceConfig('panelMessageId', data.panelMessageId).catch(() => {});
+    }
+    if (data.checkinBannerMessageId !== undefined) {
+      attendanceRepo.saveAttendanceConfig('checkinBannerMessageId', data.checkinBannerMessageId).catch(() => {});
+    }
+    if (data.activeWindowOverride !== undefined) {
+      attendanceRepo.saveAttendanceConfig('activeWindowOverride', data.activeWindowOverride).catch(() => {});
+    }
+  }
 }
 
 /**
@@ -790,6 +826,11 @@ async function submitAttendance({
   const data = getAttendanceData();
   data.submissions[submissionId] = submission;
   saveAttendanceData(data);
+  if (isConnected()) {
+    attendanceRepo.upsertSubmission(submission).catch(err => {
+      console.error('[DB] Erro ao salvar submissão no PostgreSQL:', err.message);
+    });
+  }
 
   return {
     success: true,
@@ -893,6 +934,19 @@ async function handleValidationDecision(interaction, submissionId, decision, rej
 
   saveAttendanceData(data);
 
+  if (isConnected()) {
+    attendanceRepo.upsertSubmission(submission).catch(err => {
+      console.error('[DB] Erro ao atualizar decisão de submissão no PostgreSQL:', err.message);
+    });
+    if (decision === 'approved') {
+      const ownerUser = data.users[submission.ownerUserId];
+      if (ownerUser) attendanceRepo.upsertAttendanceUser(ownerUser).catch(() => {});
+      if (submission.isPilot && submission.submitterId && data.users[submission.submitterId]) {
+        attendanceRepo.upsertAttendanceUser(data.users[submission.submitterId]).catch(() => {});
+      }
+    }
+  }
+
   // Atualiza o card de validação no canal privado da guild
   const { embed, row } = buildValidationCard(submission);
   try {
@@ -952,6 +1006,7 @@ function getUserAttendanceSummary(userId) {
 }
 
 module.exports = {
+  initAttendanceManager,
   GEENA_SCHEDULE,
   getAttendanceData,
   saveAttendanceData,

@@ -140,6 +140,27 @@ async function renderRecruitmentPanel(discordGuild, targetChannel) {
   if (guildsChanged) {
     saveGuilds(registeredGuilds);
   }
+
+  // 3. Limpeza automática de cards duplicados/órfãos (ex: guilds recriadas)
+  try {
+    const activeMessageIds = new Set([
+      config?.channels?.headerMessageId,
+      ...registeredGuilds.map(g => g.recruitmentMessageId).filter(Boolean)
+    ]);
+    const recentMessages = await targetChannel.messages.fetch({ limit: 50 }).catch(() => null);
+    if (recentMessages) {
+      for (const [msgId, msg] of recentMessages) {
+        if (msg.author.id === discordGuild.client.user.id && !activeMessageIds.has(msgId)) {
+          if (msg.embeds.some(e => e.footer?.text?.includes('ID do Clã:'))) {
+            console.log(`[RECRUTAMENTO] Removendo card duplicado/órfão antigo: ${msgId}`);
+            await msg.delete().catch(() => {});
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[RECRUTAMENTO] Aviso na limpeza de cards antigos:', err.message);
+  }
 }
 
 async function updateSingleGuildCard(discordGuild, targetChannel, guildData) {

@@ -203,8 +203,11 @@ async function handleButton(interaction, refreshServerStats) {
     const targetGuild = findGuildById(targetGuildId);
 
     if (!targetGuild) {
+      if (interaction.message && interaction.message.deletable) {
+        await interaction.message.delete().catch(() => {});
+      }
       return interaction.reply({
-        content: '❌ Guild não encontrada no sistema. Avise um administrador.',
+        content: '⚠️ Este card de guilda estava desatualizado e foi removido. Por favor, clique no card oficial atualizado logo abaixo!',
         ephemeral: true
       });
     }

@@ -3,12 +3,12 @@
     {
       "id": "geena_1",
       "name": "Geena ⭐ (1 Estrela)",
+      "location": "Castelo de Geena",
       "schedule": [
         "15:00",
         "19:00",
         "23:00"
       ],
-      "location": "Castelo de Geena",
       "alertsSent": {
         "2026-10-29T22:00": [
           "30m",
@@ -195,11 +195,11 @@
     {
       "id": "geena_2",
       "name": "Geena ⭐⭐ (2 Estrelas)",
+      "location": "Castelo de Geena",
       "schedule": [
         "15:00",
         "23:00"
       ],
-      "location": "Castelo de Geena",
       "alertsSent": {
         "2026-10-30T02:00": [
           "30m",
@@ -329,13 +329,13 @@
       "id": "larva",
       "name": "Larva",
       "level": 47,
-      "territory": "Território de Poenari",
+      "status": "dead",
       "location": "Passagem do Alvorecer",
       "schedule": [
         "22:00"
       ],
-      "status": "dead",
       "nextSpawn": "2026-11-11T01:00:00.000Z",
+      "territory": "Território de Poenari",
       "alertsSent": {
         "2026-11-02T01:00": [
           "30m",
@@ -389,13 +389,13 @@
       "id": "brachium",
       "name": "Brachium",
       "level": 63,
-      "territory": "Território de Poenari",
+      "status": "dead",
       "location": "Planícies Empaladas",
       "schedule": [
         "14:00"
       ],
-      "status": "dead",
       "nextSpawn": "2026-11-11T17:00:00.000Z",
+      "territory": "Território de Poenari",
       "alertsSent": {
         "2026-11-02T17:00": [
           "30m",
@@ -449,13 +449,13 @@
       "id": "clamamus",
       "name": "Clamamus",
       "level": 70,
-      "territory": "Território de Poenari",
+      "status": "dead",
       "location": "Bosque Umbroso",
       "schedule": [
         "22:00"
       ],
-      "status": "dead",
       "nextSpawn": "2026-11-11T01:00:00.000Z",
+      "territory": "Território de Poenari",
       "alertsSent": {
         "2026-11-02T01:00": [
           "30m",
@@ -509,13 +509,14 @@
       "id": "deserti",
       "name": "Deserti",
       "level": 83,
-      "territory": "Território de Kicel",
+      "status": "dead",
       "location": "Vale Estéril",
       "schedule": [
         "14:00"
       ],
-      "status": "dead",
       "nextSpawn": "2026-11-11T17:00:00.000Z",
+      "spawnedAt": null,
+      "territory": "Território de Kicel",
       "alertsSent": {
         "2026-11-02T17:00": [
           "30m",
@@ -563,27 +564,26 @@
           "spawn"
         ],
         "2026-11-11T17:00": []
-      },
-      "spawnedAt": null
+      }
     },
     {
       "id": "exesa",
       "name": "Exesa",
       "level": 95,
-      "territory": "Território de Kicel",
-      "location": "Dunas de Alabastro",
       "status": "dead",
+      "location": "Dunas de Alabastro",
       "nextSpawn": null,
+      "territory": "Território de Kicel",
       "alertsSent": {}
     },
     {
       "id": "usurpator",
       "name": "Usurpator",
       "level": 107,
-      "territory": "Território de Kicel",
-      "location": "Ruínas Esquecidas",
       "status": "dead",
+      "location": "Ruínas Esquecidas",
       "nextSpawn": null,
+      "territory": "Território de Kicel",
       "alertsSent": {}
     }
   ],

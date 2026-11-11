@@ -2,18 +2,50 @@ const fs = require('fs');
 const path = require('path');
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, Colors } = require('discord.js');
 const { getServerConfig } = require('./data_manager');
+const { isConnected } = require('./database/db');
+const bossRepo = require('./database/boss_repo');
 
 const BOSS_FILE = path.join(__dirname, '..', 'data', 'bosses.json');
 
+let cachedBossData = null;
+
+async function initBossManager() {
+  if (isConnected()) {
+    try {
+      const dbData = await bossRepo.loadBossData();
+      if (dbData && (dbData.geena || dbData.mapBosses)) {
+        cachedBossData = dbData;
+        fs.writeFileSync(BOSS_FILE, JSON.stringify(cachedBossData, null, 2));
+        console.log('[BOSS] Dados de bosses sincronizados com PostgreSQL!');
+      }
+    } catch (err) {
+      console.error('[BOSS] Erro ao carregar bosses do PostgreSQL:', err.message);
+    }
+  }
+}
+
 function getBossData() {
+  if (cachedBossData) return cachedBossData;
   if (fs.existsSync(BOSS_FILE)) {
-    return JSON.parse(fs.readFileSync(BOSS_FILE, 'utf-8'));
+    try {
+      cachedBossData = JSON.parse(fs.readFileSync(BOSS_FILE, 'utf-8'));
+      return cachedBossData;
+    } catch {}
   }
   return { geena: [], mapBosses: [], panelMessageId: null };
 }
 
 function saveBossData(data) {
-  fs.writeFileSync(BOSS_FILE, JSON.stringify(data, null, 2));
+  cachedBossData = data;
+  try {
+    fs.writeFileSync(BOSS_FILE, JSON.stringify(data, null, 2));
+  } catch {}
+
+  if (isConnected()) {
+    bossRepo.saveBossData(data).catch(err => {
+      console.error('[DB] Erro ao salvar boss_data no PostgreSQL:', err.message);
+    });
+  }
 }
 
 // Retorna a próxima data de spawn para horários fixos diários (ex: ["15:00", "19:00", "23:00"])
@@ -484,6 +516,7 @@ async function checkAndSendBossAlerts(discordClient) {
 }
 
 module.exports = {
+  initBossManager,
   getBossData,
   saveBossData,
   getNextGeenaSpawn,

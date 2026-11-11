@@ -1227,7 +1227,9 @@
     "horarios": "lv 48, logo a partir das 20h",
     "sobre": "Nenhuma observação informada.",
     "status": "pending",
-    "createdAt": "2026-10-31T00:53:15.707Z"
+    "createdAt": "2026-10-31T00:53:15.707Z",
+    "reviewedBy": null,
+    "reviewedAt": null
   },
   {
     "id": "app_1793408417769",
@@ -2555,7 +2557,9 @@
     "horarios": "70",
     "sobre": "Nenhuma observação informada.",
     "status": "pending",
-    "createdAt": "2026-11-04T21:43:12.273Z"
+    "createdAt": "2026-11-04T21:43:12.273Z",
+    "reviewedBy": null,
+    "reviewedAt": null
   },
   {
     "id": "app_1793829059681",
@@ -2567,7 +2571,9 @@
     "horarios": "71. dia inteiro",
     "sobre": "Nenhuma observação informada.",
     "status": "pending",
-    "createdAt": "2026-11-04T21:50:59.681Z"
+    "createdAt": "2026-11-04T21:50:59.681Z",
+    "reviewedBy": null,
+    "reviewedAt": null
   },
   {
     "id": "app_1793829674354",
@@ -2585,14 +2591,13 @@
   },
   {
     "id": "trans_1793829791498",
-    "type": "transfer",
     "guildId": "guild_1793311847982",
-    "oldGuildId": "guild_1793298314017",
-    "oldGuildTag": "NOM",
     "userId": "242000640212074496",
     "userTag": "bh3556",
     "nick": "BH - 71",
-    "motivo": "sai da no mercy e entrei na night fall",
+    "classe": "",
+    "horarios": "",
+    "sobre": "",
     "status": "approved",
     "createdAt": "2026-11-04T22:03:11.498Z",
     "reviewedBy": "596480584923217931",
@@ -2698,14 +2703,13 @@
   },
   {
     "id": "trans_1793908418101",
-    "type": "transfer",
     "guildId": "guild_1793311847982",
-    "oldGuildId": "guild_1793298314017",
-    "oldGuildTag": "NOM",
     "userId": "913563495474282526",
     "userTag": "rooteck",
     "nick": "GERENTE 64",
-    "motivo": "Sai no dia 1 ou 2 vim jogar com uns amigos eu tava solo",
+    "classe": "",
+    "horarios": "",
+    "sobre": "",
     "status": "approved",
     "createdAt": "2026-11-05T19:53:38.101Z",
     "reviewedBy": "596480584923217931",
@@ -2721,7 +2725,9 @@
     "horarios": "73",
     "sobre": "Nenhuma observação informada.",
     "status": "pending",
-    "createdAt": "2026-11-07T14:56:52.840Z"
+    "createdAt": "2026-11-07T14:56:52.840Z",
+    "reviewedBy": null,
+    "reviewedAt": null
   },
   {
     "id": "app_1794073722388",
@@ -2733,7 +2739,9 @@
     "horarios": "72",
     "sobre": "verdade",
     "status": "pending",
-    "createdAt": "2026-11-07T17:48:42.388Z"
+    "createdAt": "2026-11-07T17:48:42.388Z",
+    "reviewedBy": null,
+    "reviewedAt": null
   },
   {
     "id": "app_1794099085529",
@@ -2745,7 +2753,9 @@
     "horarios": "Lvl 71, jogo um pouco a cada momento, não tenho horário específico",
     "sobre": "Jogando desde o nightcrows, e tô indo nos jogos e indo aprendendo pouco a pouco",
     "status": "pending",
-    "createdAt": "2026-11-08T00:51:25.529Z"
+    "createdAt": "2026-11-08T00:51:25.529Z",
+    "reviewedBy": null,
+    "reviewedAt": null
   },
   {
     "id": "app_1794153910346",
@@ -2757,7 +2767,9 @@
     "horarios": "71",
     "sobre": "Nenhuma observação informada.",
     "status": "pending",
-    "createdAt": "2026-11-08T16:05:10.346Z"
+    "createdAt": "2026-11-08T16:05:10.346Z",
+    "reviewedBy": null,
+    "reviewedAt": null
   },
   {
     "id": "app_1794159970767",
@@ -2769,7 +2781,9 @@
     "horarios": "72, fim de semana quase o dia todo, meio de semana a noite",
     "sobre": "Nenhuma observação informada.",
     "status": "pending",
-    "createdAt": "2026-11-08T17:46:10.767Z"
+    "createdAt": "2026-11-08T17:46:10.767Z",
+    "reviewedBy": null,
+    "reviewedAt": null
   },
   {
     "id": "app_1794160032115",
@@ -2781,7 +2795,9 @@
     "horarios": "lvl 70 jogo o dia todo",
     "sobre": "mir4 , night crows, odin vahalla, etc",
     "status": "pending",
-    "createdAt": "2026-11-08T17:47:12.115Z"
+    "createdAt": "2026-11-08T17:47:12.115Z",
+    "reviewedBy": null,
+    "reviewedAt": null
   },
   {
     "id": "app_1794160409091",
@@ -2793,7 +2809,9 @@
     "horarios": "lvl 71 / Geralmente a noite",
     "sobre": "Nenhuma observação informada.",
     "status": "pending",
-    "createdAt": "2026-11-08T17:53:29.091Z"
+    "createdAt": "2026-11-08T17:53:29.091Z",
+    "reviewedBy": null,
+    "reviewedAt": null
   },
   {
     "id": "app_1794162137088",
@@ -2805,7 +2823,9 @@
     "horarios": "level 75 - todos o dia ate as 01:00 da manha",
     "sobre": "joguei mir4 e nino kuni",
     "status": "pending",
-    "createdAt": "2026-11-08T18:22:17.089Z"
+    "createdAt": "2026-11-08T18:22:17.089Z",
+    "reviewedBy": null,
+    "reviewedAt": null
   },
   {
     "id": "app_1794162824630",
@@ -2817,7 +2837,9 @@
     "horarios": "Lv 74",
     "sobre": "Nenhuma observação informada.",
     "status": "pending",
-    "createdAt": "2026-11-08T18:33:44.630Z"
+    "createdAt": "2026-11-08T18:33:44.630Z",
+    "reviewedBy": null,
+    "reviewedAt": null
   },
   {
     "id": "app_1794163648932",
@@ -2829,7 +2851,9 @@
     "horarios": "lvl 70 um pouca de cada periodo",
     "sobre": "sempre joguei, e sempre em guild competitiva mas por ser free nao ajudava muito",
     "status": "pending",
-    "createdAt": "2026-11-08T18:47:28.932Z"
+    "createdAt": "2026-11-08T18:47:28.932Z",
+    "reviewedBy": null,
+    "reviewedAt": null
   },
   {
     "id": "app_1794251200018",
@@ -2841,7 +2865,9 @@
     "horarios": "73, tarde/noitee",
     "sobre": "Nenhuma observação informada.",
     "status": "pending",
-    "createdAt": "2026-11-09T19:06:40.018Z"
+    "createdAt": "2026-11-09T19:06:40.018Z",
+    "reviewedBy": null,
+    "reviewedAt": null
   },
   {
     "id": "app_1794275623550",
@@ -2853,7 +2879,9 @@
     "horarios": "72. Não tenho um horário fixo.",
     "sobre": "Nenhuma observação informada.",
     "status": "pending",
-    "createdAt": "2026-11-10T01:53:43.550Z"
+    "createdAt": "2026-11-10T01:53:43.550Z",
+    "reviewedBy": null,
+    "reviewedAt": null
   },
   {
     "id": "app_1794335471036",
@@ -2865,20 +2893,23 @@
     "horarios": "TTT",
     "sobre": "Nenhuma observação informada.",
     "status": "pending",
-    "createdAt": "2026-11-10T18:31:11.036Z"
+    "createdAt": "2026-11-10T18:31:11.036Z",
+    "reviewedBy": null,
+    "reviewedAt": null
   },
   {
     "id": "trans_1794336340967",
-    "type": "transfer",
     "guildId": "guild_1793291080761",
-    "oldGuildId": "guild_1793298314017",
-    "oldGuildTag": "NOM",
     "userId": "404318366833049607",
     "userTag": "nobody.5463",
     "nick": "Nobody",
-    "motivo": "Troquei de guild.",
+    "classe": "",
+    "horarios": "",
+    "sobre": "",
     "status": "pending",
-    "createdAt": "2026-11-10T18:45:40.967Z"
+    "createdAt": "2026-11-10T18:45:40.967Z",
+    "reviewedBy": null,
+    "reviewedAt": null
   },
   {
     "id": "app_1794336399055",
@@ -2890,7 +2921,9 @@
     "horarios": "lvl 72",
     "sobre": "joguei varios",
     "status": "pending",
-    "createdAt": "2026-11-10T18:46:39.055Z"
+    "createdAt": "2026-11-10T18:46:39.055Z",
+    "reviewedBy": null,
+    "reviewedAt": null
   },
   {
     "id": "app_1794336433132",
@@ -2902,7 +2935,9 @@
     "horarios": "75 e jogo praticamente dia todo",
     "sobre": "Sou jogador antigo de jogos MMORPG, comecei no lineage, RF, wow entre outros e ultimo jogo antes desse foi o RF",
     "status": "pending",
-    "createdAt": "2026-11-10T18:47:13.132Z"
+    "createdAt": "2026-11-10T18:47:13.132Z",
+    "reviewedBy": null,
+    "reviewedAt": null
   },
   {
     "id": "app_1794336912415",
@@ -2914,6 +2949,8 @@
     "horarios": "72 - a tarde e a noite",
     "sobre": "RF, MIR, NC, estou na guild pq conheço alguns membros",
     "status": "pending",
-    "createdAt": "2026-11-10T18:55:12.415Z"
+    "createdAt": "2026-11-10T18:55:12.415Z",
+    "reviewedBy": null,
+    "reviewedAt": null
   }
 ]

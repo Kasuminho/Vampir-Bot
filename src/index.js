@@ -2,14 +2,16 @@ require('dotenv').config();
 const { Client, GatewayIntentBits, REST, Routes } = require('discord.js');
 
 const { commands } = require('./commands');
-const { getServerConfig } = require('./data_manager');
+const { initDataManager, getServerConfig } = require('./data_manager');
 const { renderRecruitmentPanel } = require('./recruitment_panel');
 const {
+  initBossManager,
   renderOrUpdateBossPanel,
   checkAndSendBossAlerts
 } = require('./boss_manager');
 const { renderOrUpdateVoicePanel } = require('./voice_panel');
 const {
+  initAttendanceManager,
   setupAttendanceChannels,
   renderOrUpdateCheckinBanner,
   renderOrUpdatePresencePanel
@@ -207,4 +209,18 @@ client.on('error', (err) => {
   console.error('[ERRO DISCORD CLIENT]', err.message);
 });
 
-client.login(process.env.DISCORD_TOKEN);
+async function startBot() {
+  console.log('[STARTUP] Sincronizando com o Banco de Dados PostgreSQL...');
+  await initDataManager();
+  await Promise.all([
+    initBossManager(),
+    initAttendanceManager()
+  ]);
+
+  console.log('[STARTUP] Conectando ao Discord Gateway...');
+  await client.login(process.env.DISCORD_TOKEN);
+}
+
+startBot().catch(err => {
+  console.error('[FATAL] Erro na inicialização:', err);
+});
