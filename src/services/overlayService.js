@@ -314,8 +314,8 @@ function startOverlayService(client) {
     });
   });
 
-  server.listen(PORT, () => {
-    console.log(`🌐 [OVERLAY] Servidor Web & WebSocket ativo na porta ${PORT}`);
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`🌐 [OVERLAY] Servidor Web & WebSocket ativo em 0.0.0.0:${PORT}`);
   });
 }
 
