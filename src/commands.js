@@ -380,6 +380,25 @@ const commands = [
           { name: 'Andar 1 (Mapa 1: 3 Bosses)', value: 1 },
           { name: 'Andar 2 (Mapa 2: 6 Bosses)', value: 2 }
         )
+    ),
+
+  new SlashCommandBuilder()
+    .setName('lockdown')
+    .setDescription('Controle do Modo Combate / OpSec (oculta canais para membros sem tag)')
+    .addStringOption(opt =>
+      opt.setName('acao')
+        .setDescription('Ação a ser executada')
+        .setRequired(true)
+        .addChoices(
+          { name: '📊 Consultar Status Atual', value: 'status' },
+          { name: '🔒 Ativar Modo Combate (Ocultar Canais)', value: 'ativar' },
+          { name: '🔓 Desativar Modo Combate (Liberar Canais)', value: 'desativar' }
+        )
+    )
+    .addStringOption(opt =>
+      opt.setName('motivo')
+        .setDescription('Motivo manual (opcional ao ativar/desativar)')
+        .setRequired(false)
     )
 ];
 

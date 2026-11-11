@@ -34,6 +34,7 @@ const {
   renderOrUpdateCheckinBanner
 } = require('../attendance_manager');
 const { createAuthResponse, renderOverlayPanel, executeCommandCall } = require('../services/overlayService');
+const { activateLockdown, deactivateLockdown, getLockdownStatus, getNextGeenaEvent } = require('../services/lockdownService');
 
 function parseHexColor(input) {
   if (!input) return '#9B59B6';
@@ -1651,6 +1652,65 @@ async function handleCommand(interaction, refreshServerStats) {
     });
 
     return interaction.reply({ content: msg });
+  }
+
+  // --- /lockdown ---
+  if (commandName === 'lockdown') {
+    const isStaff = member.permissions.has(PermissionFlagsBits.Administrator) || (config?.roles?.staff && member.roles.cache.has(config.roles.staff));
+    const isLider = config?.roles?.lider && member.roles.cache.has(config.roles.lider);
+    const isOficial = config?.roles?.oficial && member.roles.cache.has(config.roles.oficial);
+    const isCaller = config?.roles?.caller && member.roles.cache.has(config.roles.caller);
+
+    if (!isStaff && !isLider && !isOficial && !isCaller) {
+      return interaction.reply({
+        content: '❌ **Permissão Negada:** Apenas a Staff, Líderes de Guild e Callers podem gerenciar o Modo Combate / Lockdown.',
+        ephemeral: true
+      });
+    }
+
+    const acao = interaction.options.getString('acao');
+    const motivo = interaction.options.getString('motivo') || `Ação manual por ${member.displayName}`;
+
+    await interaction.deferReply({ ephemeral: true });
+
+    if (acao === 'status') {
+      const status = getLockdownStatus(guild);
+      const nextGeena = getNextGeenaEvent();
+
+      const embedStatus = new EmbedBuilder()
+        .setTitle('🛡️ Status do Modo Combate / OpSec')
+        .setDescription(
+          status.isActive
+            ? `🔒 **STATUS ATUAL: ATIVADO (LOCKDOWN)**\nCanais comunitários estão **OCULTOS** para quem não tem tag de guild.`
+            : `🔓 **STATUS ATUAL: DESATIVADO (ABERTO)**\nCanais comunitários estão visíveis para todos os membros.`
+        )
+        .addFields(
+          { name: '⚔️ Próximo Boss Geena', value: `\`${nextGeena.name}\` (em ${nextGeena.minutesUntilSpawn} minutos)`, inline: false },
+          { name: '👥 Membros em Call Agora', value: `\`${status.currentVoiceCount} jogadores\``, inline: true },
+          { name: '🔥 Pico da Batalha', value: `\`${status.peakVoiceCount} jogadores\``, inline: true },
+          { name: '⏱️ Início do Modo', value: status.startedAt ? `<t:${Math.floor(new Date(status.startedAt).getTime() / 1000)}:R>` : '*Nenhum*', inline: true }
+        )
+        .setColor(status.isActive ? Colors.Red : Colors.Green)
+        .setFooter({ text: 'Automação de 15 minutos antes dos bosses + saída em massa da call ativa' });
+
+      return interaction.editReply({ embeds: [embedStatus] });
+    }
+
+    if (acao === 'ativar') {
+      const activated = await activateLockdown(guild, motivo, 'manual');
+      if (!activated) {
+        return interaction.editReply('⚠️ O Modo Combate / Lockdown já está ativado!');
+      }
+      return interaction.editReply(`🔒 **Modo Combate Ativado com sucesso!**\nTodos os canais comunitários foram ocultados para membros sem tag.\nMotivo: \`${motivo}\``);
+    }
+
+    if (acao === 'desativar') {
+      const deactivated = await deactivateLockdown(guild, motivo);
+      if (!deactivated) {
+        return interaction.editReply('⚠️ O Modo Combate / Lockdown já está desativado!');
+      }
+      return interaction.editReply(`🔓 **Modo Combate Desativado com sucesso!**\nOs canais comunitários foram reabertos para toda a comunidade.\nMotivo: \`${motivo}\``);
+    }
   }
 }
 

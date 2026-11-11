@@ -24,6 +24,7 @@ const { handleAutoTranslation } = require('./handlers/chatTranslationHandler');
 const { refreshServerStats } = require('./services/statsService');
 const { startHeartbeatService } = require('./services/heartbeatService');
 const { startOverlayService } = require('./services/overlayService');
+const { checkLockdownRoutine } = require('./services/lockdownService');
 
 const client = new Client({
   intents: [
@@ -157,6 +158,12 @@ client.once('ready', async () => {
   // Rotina de Checagem de Alertas de Bosses (a cada 30 segundos)
   setInterval(() => {
     checkAndSendBossAlerts(client).catch(() => {});
+  }, 30 * 1000);
+
+  // Rotina do Modo Combate / Lockdown 15m antes dos Bosses e Liberação por saída em massa (a cada 30 segundos)
+  checkLockdownRoutine(client).catch(() => {});
+  setInterval(() => {
+    checkLockdownRoutine(client).catch(() => {});
   }, 30 * 1000);
 
   // Monitoramento de Uptime com Healthchecks.io / Nuvem (Heartbeat Push a cada 60s)
