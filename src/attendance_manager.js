@@ -1,5 +1,3 @@
-const fs = require('fs');
-const path = require('path');
 const {
   EmbedBuilder,
   ActionRowBuilder,
@@ -9,12 +7,9 @@ const {
   Colors,
   PermissionFlagsBits
 } = require('discord.js');
-const { getServerConfig, getGuilds, saveGuilds } = require('./data_manager');
+const { getServerConfig, saveServerConfig, getGuilds, saveGuilds } = require('./data_manager');
 const { isConnected } = require('./database/db');
 const attendanceRepo = require('./database/attendance_repo');
-
-const ATTENDANCE_FILE = path.join(__dirname, '..', 'data', 'presencas.json');
-const CONFIG_FILE = path.join(__dirname, '..', 'data', 'server_config.json');
 
 const GEENA_SCHEDULE = [
   { key: 'geena_15', name: 'Geena 15:00', hour: 15 },
@@ -22,51 +17,40 @@ const GEENA_SCHEDULE = [
   { key: 'geena_23', name: 'Geena 23:00', hour: 23 }
 ];
 
-let cachedAttendanceData = null;
+let cachedAttendanceData = {
+  submissions: {},
+  users: {},
+  panelMessageId: null,
+  checkinBannerMessageId: null,
+  activeWindowOverride: null
+};
 
 async function initAttendanceManager() {
   if (isConnected()) {
     try {
       const dbState = await attendanceRepo.loadAttendanceState();
-      if (dbState && (Object.keys(dbState.submissions).length > 0 || Object.keys(dbState.users).length > 0)) {
+      if (dbState) {
         cachedAttendanceData = dbState;
-        fs.writeFileSync(ATTENDANCE_FILE, JSON.stringify(cachedAttendanceData, null, 2), 'utf-8');
-        console.log(`[ATTENDANCE] PostgreSQL sincronizado: ${Object.keys(dbState.submissions).length} submissões, ${Object.keys(dbState.users).length} usuários.`);
+        console.log(`[ATTENDANCE] PostgreSQL 100% carregado: ${Object.keys(dbState.submissions).length} submissões, ${Object.keys(dbState.users).length} usuários.`);
       }
     } catch (err) {
-      console.error('[ATTENDANCE] Erro ao carregar do PostgreSQL:', err.message);
+      console.error('[ATTENDANCE] Erro ao carregar presenças do PostgreSQL:', err.message);
     }
   }
 }
 
 /**
- * Lê o arquivo de presenças
+ * Lê os dados de presenças em memória
  */
 function getAttendanceData() {
-  if (cachedAttendanceData) return cachedAttendanceData;
-  if (fs.existsSync(ATTENDANCE_FILE)) {
-    try {
-      cachedAttendanceData = JSON.parse(fs.readFileSync(ATTENDANCE_FILE, 'utf-8'));
-      return cachedAttendanceData;
-    } catch {}
-  }
-  return {
-    submissions: {},
-    users: {},
-    panelMessageId: null,
-    checkinBannerMessageId: null
-  };
+  return cachedAttendanceData;
 }
 
 /**
- * Salva o arquivo de presenças
+ * Salva as configurações de presença no PostgreSQL
  */
 function saveAttendanceData(data) {
   cachedAttendanceData = data;
-  try {
-    fs.writeFileSync(ATTENDANCE_FILE, JSON.stringify(data, null, 2), 'utf-8');
-  } catch {}
-
   if (isConnected()) {
     if (data.panelMessageId !== undefined) {
       attendanceRepo.saveAttendanceConfig('panelMessageId', data.panelMessageId).catch(() => {});
@@ -437,7 +421,7 @@ async function setupAttendanceChannels(discordGuild) {
   }
 
   if (configChanged) {
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), 'utf-8');
+    saveServerConfig(config);
   }
   if (guildsChanged) {
     saveGuilds(guildsList);

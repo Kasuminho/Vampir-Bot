@@ -5,9 +5,7 @@ const {
   ButtonStyle, 
   Colors 
 } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
-const { getGuilds, saveGuilds, getServerConfig, getApplications, saveApplications } = require('./data_manager');
+const { getGuilds, saveGuilds, getServerConfig, saveServerConfig, getApplications, saveApplications } = require('./data_manager');
 
 function buildGuildEmbedAndRow(discordGuild, g, memberCount) {
   let embedColor = Colors.Purple;
@@ -99,8 +97,7 @@ async function renderRecruitmentPanel(discordGuild, targetChannel) {
     headerMsg = await targetChannel.send({ embeds: [headerEmbed] }).catch(() => null);
     if (headerMsg && config?.channels) {
       config.channels.headerMessageId = headerMsg.id;
-      const configPath = path.join(__dirname, '..', 'data', 'server_config.json');
-      fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+      saveServerConfig(config);
     }
   }
 

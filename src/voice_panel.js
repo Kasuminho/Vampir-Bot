@@ -1,9 +1,5 @@
-const fs = require('fs');
-const path = require('path');
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, Colors } = require('discord.js');
-const { getServerConfig, getGuilds } = require('./data_manager');
-
-const CONFIG_PATH = path.join(__dirname, '..', 'data', 'server_config.json');
+const { getServerConfig, saveServerConfig, getGuilds } = require('./data_manager');
 
 /**
  * Monta o embed e os botões do painel de monitoramento de voz
@@ -151,7 +147,7 @@ async function ensureVoicePanelChannel(discordGuild) {
   if (found) {
     config.channels = config.channels || {};
     config.channels.painelCalls = found.id;
-    fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
+    saveServerConfig(config);
     return found;
   }
 
@@ -193,7 +189,7 @@ async function ensureVoicePanelChannel(discordGuild) {
 
   config.channels = config.channels || {};
   config.channels.painelCalls = newChan.id;
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
+  saveServerConfig(config);
 
   return newChan;
 }
@@ -224,7 +220,7 @@ async function renderOrUpdateVoicePanel(discordGuild, targetChannel = null) {
       panelMsg = await channel.send({ embeds: [embed], components: [row] }).catch(() => null);
       if (panelMsg) {
         config.channels.voicePanelMessageId = panelMsg.id;
-        fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
+        saveServerConfig(config);
       }
     }
   } catch (err) {
