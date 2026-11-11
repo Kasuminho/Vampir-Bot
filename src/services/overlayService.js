@@ -51,25 +51,29 @@ function initGuildAssignments() {
 initGuildAssignments();
 
 // --- DETECTOR DINÂMICO DE URL DO CLOUDFLARE TUNNEL ---
-function watchTunnelLog() {
-  const checkUrl = () => {
-    try {
-      if (fs.existsSync(TUNNEL_LOG_PATH)) {
-        const data = fs.readFileSync(TUNNEL_LOG_PATH, 'utf-8');
-        const match = data.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
-        if (match && match[0] !== currentPublicUrl) {
+function readTunnelUrlFromLog() {
+  try {
+    if (fs.existsSync(TUNNEL_LOG_PATH)) {
+      const data = fs.readFileSync(TUNNEL_LOG_PATH, 'utf-8');
+      const match = data.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
+      if (match) {
+        if (match[0] !== currentPublicUrl) {
           currentPublicUrl = match[0];
           console.log(`\n======================================================`);
           console.log(`🚀 [CLOUDFLARE TUNNEL ATIVO] Novo link público detectado:`);
           console.log(`👉 ${currentPublicUrl}`);
           console.log(`======================================================\n`);
         }
+        return match[0];
       }
-    } catch (err) {}
-  };
+    }
+  } catch (err) {}
+  return currentPublicUrl;
+}
 
-  setInterval(checkUrl, 5000);
-  checkUrl();
+function watchTunnelLog() {
+  setInterval(readTunnelUrlFromLog, 2000);
+  readTunnelUrlFromLog();
 }
 
 // --- AVALIADOR DE PERMISSÕES DO MEMBRO ---
@@ -118,6 +122,9 @@ function evaluateMemberPermissions(member) {
 
 // --- GERAÇÃO DE RESPOSTA COM LINK SEGURO ---
 function createAuthResponse(member) {
+  // Força uma leitura em tempo real do túnel
+  const activeUrl = readTunnelUrlFromLog();
+
   const perm = evaluateMemberPermissions(member);
   if (!perm.isAllowed) {
     return {
@@ -141,7 +148,7 @@ function createAuthResponse(member) {
     { expiresIn: '8h' }
   );
 
-  const fullUrl = `${currentPublicUrl}/?token=${token}`;
+  const fullUrl = `${activeUrl}/?token=${token}`;
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()

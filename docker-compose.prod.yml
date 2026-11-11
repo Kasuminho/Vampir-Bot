@@ -31,7 +31,8 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: vampir-tunnel
     restart: always
-    command: tunnel --no-autoupdate --url http://vampir-bot:3000 --logfile /shared/tunnel.log
+    user: root
+    command: tunnel --no-autoupdate --url http://vampir-bot:3000 --logfile /shared/tunnel.log --loglevel info
     volumes:
       - tunnel-data:/shared
 
