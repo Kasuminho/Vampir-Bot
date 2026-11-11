@@ -1,0 +1,63 @@
+name: Build Windows Overlay Executable
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'client/**'
+      - '.github/workflows/build-overlay.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows-exe:
+    name: Build VampirOverlay.exe
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: 'client/package-lock.json'
+
+      - name: Install Client Dependencies
+        working-directory: ./client
+        run: |
+          npm install
+
+      - name: Build Windows Executable
+        working-directory: ./client
+        run: |
+          npm run build
+
+      - name: Publish VampirOverlay.exe Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: "Vampir Tactical Overlay (Windows)"
+          body: |
+            ## ⚔️ Vampir Tactical Overlay - Windows Portable
+            
+            Executável portátil do Overlay Tático para a Aliança Vampir / Rust 2.
+            
+            - **Download:** Clique em `VampirOverlay.exe` abaixo.
+            - **Como Usar:** Abra o app e cole o seu Token gerado pelo bot com `/overlay`.
+            - **Atalhos no Jogo (Numpad):**
+              - `1 a 6`: Alocar Boss correspondente
+              - `0`: Boss Central
+              - `/`: Alternar Modo de Combate (Foco em Boss vs PVP)
+              - `+`: Trocar Mapa (1 vs 2)
+              - `-`: Marcar Boss Morto (Cronômetro 15:31)
+              - `*`: Call Geral / All-In (Comandantes)
+              - `F8`: Travar / Destravar Cliques (Click-through)
+          files: client/dist/VampirOverlay.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

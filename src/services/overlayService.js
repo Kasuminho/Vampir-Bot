@@ -35,6 +35,7 @@ let currentPublicUrl = process.env.PUBLIC_URL || `http://localhost:${PORT}`;
 let battleState = {
   activeMap: 1, // 1 ou 2
   assignments: {},
+  combatModes: {}, // { guildId: 'BOSS' | 'PVP' }
   deadBosses: {}, // { bossId: timestamp }
   callGeral: null // { bossId, bossName, author }
 };
@@ -152,20 +153,33 @@ function createAuthResponse(member) {
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setLabel('🚀 Abrir Meu Overlay Tático')
+      .setLabel('📥 Baixar App Windows (.exe)')
+      .setStyle(ButtonStyle.Link)
+      .setURL('https://github.com/Kasuminho/Vampir-Bot/releases/latest/download/VampirOverlay.exe')
+      .setEmoji('💻'),
+    new ButtonBuilder()
+      .setLabel('🚀 Abrir Overlay no Navegador')
       .setStyle(ButtonStyle.Link)
       .setURL(fullUrl)
+      .setEmoji('🌐')
   );
 
   const embed = new EmbedBuilder()
     .setTitle('⚔️ Acesso Autorizado - Overlay Tático da Aliança')
-    .setDescription(`Olá **${member.displayName}**!\nSeu acesso seguro foi gerado e é válido por **8 horas**.`)
+    .setDescription(
+      `Olá **${member.displayName}**!\nSeu acesso seguro foi gerado e é válido por **8 horas**.\n\n` +
+      `**💻 Como usar o App Executável no Windows:**\n` +
+      `1. Baixe o executável no botão abaixo (não precisa instalar, é só abrir).\n` +
+      `2. No App, clique na engrenagem ⚙️ e cole seu Token:\n` +
+      `\`\`\`text\n${token}\n\`\`\`\n` +
+      `*Ou clique em "Abrir Overlay no Navegador" para usar direto sem baixar nada.*`
+    )
     .addFields(
       { name: '🏰 Sua Legião', value: perm.userGuild ? `[${perm.userGuild.tag}] ${perm.userGuild.name}` : 'Membro da Coalizão', inline: true },
       { name: '👑 Permissão de Call', value: perm.canCallGeneral ? '👑 Call Geral (All-In)' : (perm.canCallGuild ? '🛡️ Call da Guilda' : '⚔️ Visualização'), inline: true }
     )
     .setColor(perm.canCallGeneral ? 0xf1c40f : (perm.canCallGuild ? 0x2ecc71 : 0x3498db))
-    .setFooter({ text: 'Clique no botão abaixo para abrir a HUD no seu navegador ou tela do jogo.' });
+    .setFooter({ text: 'Vampir Tactical Overlay • Sistema de Coordenação GvG' });
 
   return {
     success: true,
@@ -178,15 +192,26 @@ function createAuthResponse(member) {
 async function renderOverlayPanel(channel) {
   const embed = new EmbedBuilder()
     .setTitle('🏰 Overlay Tático da Aliança - Vampir / Rust 2')
-    .setDescription('Clique no botão abaixo para gerar seu link seguro e sincronizado com o mapa de guerra em tempo real.\n\n• **Líderes:** Podem alocar o destino da guilda via Numpad.\n• **Comandantes:** Podem convocar Call Geral (All-In).\n• **Membros:** Visualizam em tempo real para onde cada guilda deve ir.')
+    .setDescription(
+      'Tenha a visão em tempo real de onde cada guilda da aliança está alocada durante as wars e chefes de mundo!\n\n' +
+      '• **Líderes de Guilda:** Podem alocar o destino da guilda via teclado numérico (`1 a 6`).\n' +
+      '• **Foco em PVP ou Boss:** Alterne com a barra (`/`).\n' +
+      '• **Sinalizar Inimigos:** Clique no mapa para alertar a coalizão inteira.\n' +
+      '• **Comandantes:** Disparam a Call Geral de emergência (`*`).'
+    )
     .setColor(0x9b59b6);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('btn_get_overlay')
-      .setLabel('⚔️ Acessar Meu Overlay')
+      .setLabel('⚔️ Gerar Meu Acesso / Token')
       .setStyle(ButtonStyle.Primary)
-      .setEmoji('🖥️')
+      .setEmoji('🔑'),
+    new ButtonBuilder()
+      .setLabel('📥 Baixar App Windows (.exe)')
+      .setStyle(ButtonStyle.Link)
+      .setURL('https://github.com/Kasuminho/Vampir-Bot/releases/latest/download/VampirOverlay.exe')
+      .setEmoji('💻')
   );
 
   await channel.send({ embeds: [embed], components: [row] });
@@ -255,8 +280,27 @@ function startOverlayService(client) {
       battleState.assignments[guildId] = bossId;
       io.emit('state_updated', {
         assignments: battleState.assignments,
+        combatModes: battleState.combatModes,
         action: `[${guildId}] Call atualizada ➔ Boss ${bossId}`
       });
+    });
+
+    // Modo de Combate (BOSS vs PVP)
+    socket.on('set_combat_mode', ({ guildId, mode }) => {
+      const canManage = socket.user.canCallGeneral || (socket.user.canCallGuild && socket.user.guildId === guildId);
+      if (!canManage) return;
+
+      battleState.combatModes[guildId] = mode;
+      io.emit('state_updated', {
+        assignments: battleState.assignments,
+        combatModes: battleState.combatModes,
+        action: `[${guildId}] Foco alterado para: ${mode === 'PVP' ? '⚔️ PVP' : '🎯 BOSS'}`
+      });
+    });
+
+    // Ping Tático no Mapa (Inimigo Detectado)
+    socket.on('map_ping', (ping) => {
+      io.emit('map_ping', ping);
     });
 
     // Call Geral / All-In
