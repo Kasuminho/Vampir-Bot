@@ -22,5 +22,7 @@ RUN mkdir -p /app/data
 # Define ambiente de produção
 ENV NODE_ENV=production
 
+EXPOSE 3000
+
 # Executa o bot
 CMD ["node", "src/index.js"]

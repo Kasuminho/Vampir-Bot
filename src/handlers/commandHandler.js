@@ -33,6 +33,7 @@ const {
   extendGeenaWindow,
   renderOrUpdateCheckinBanner
 } = require('../attendance_manager');
+const { createAuthResponse, renderOverlayPanel } = require('../services/overlayService');
 
 function parseHexColor(input) {
   if (!input) return '#9B59B6';
@@ -1616,6 +1617,24 @@ async function handleCommand(interaction, refreshServerStats) {
     );
 
     return interaction.reply({ embeds: [embedRanking] });
+  }
+
+  // --- /overlay ---
+  if (commandName === 'overlay') {
+    const res = createAuthResponse(member);
+    if (!res.success) {
+      return interaction.reply({ content: res.message, ephemeral: true });
+    }
+    return interaction.reply({ embeds: res.embeds, components: res.components, ephemeral: true });
+  }
+
+  // --- /painel-overlay ---
+  if (commandName === 'painel-overlay') {
+    if (!member.permissions.has(PermissionFlagsBits.Administrator)) {
+      return interaction.reply({ content: '❌ Apenas Administradores podem usar este comando.', ephemeral: true });
+    }
+    await renderOverlayPanel(interaction.channel);
+    return interaction.reply({ content: '✅ Painel do Overlay Tático enviado com sucesso neste canal!', ephemeral: true });
   }
 }
 

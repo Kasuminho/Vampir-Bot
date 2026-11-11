@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vampir - Tactical Alliance Overlay</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    @keyframes pulseGlow {
+      0%, 100% { transform: scale(1); filter: drop-shadow(0 0 8px currentColor); }
+      50% { transform: scale(1.1); filter: drop-shadow(0 0 18px currentColor); }
+    }
+    @keyframes sirenFlash {
+      0%, 100% { opacity: 0.2; }
+      50% { opacity: 0.85; }
+    }
+    .animate-glow {
+      animation: pulseGlow 1.8s infinite ease-in-out;
+    }
+    .animate-siren {
+      animation: sirenFlash 0.7s infinite alternate;
+    }
+    .tactical-grid {
+      background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+  </style>
+</head>
+<body class="bg-[#0b0d11] text-slate-100 min-h-screen font-sans antialiased p-3 sm:p-5 tactical-grid select-none">
+
+  <!-- HEADER & CONTROLS BAR -->
+  <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4 bg-slate-900/90 border border-slate-700/80 rounded-2xl p-4 shadow-2xl backdrop-blur-md mb-4">
+    
+    <!-- Title & Status -->
+    <div class="flex items-center gap-3">
+      <div id="statusDot" class="w-3.5 h-3.5 rounded-full bg-emerald-500 animate-ping"></div>
+      <div>
+        <h1 class="text-lg sm:text-xl font-black tracking-wider text-white uppercase flex items-center gap-2">
+          <span>⚔️ VAMPIR - RUST 2 OVERLAY</span>
+          <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-950 text-red-400 border border-red-800/60">GvG LIVE</span>
+        </h1>
+        <p id="userBadge" class="text-xs text-slate-400">Conectando ao WebSocket da Aliança...</p>
+      </div>
+    </div>
+
+    <!-- Map Switcher -->
+    <div class="flex items-center bg-slate-950/80 p-1 rounded-xl border border-slate-800">
+      <button id="btnMap1" onclick="requestMapSwitch(1)" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all bg-red-600 text-white shadow-lg">
+        Mapa 1 (3 Bosses)
+      </button>
+      <button id="btnMap2" onclick="requestMapSwitch(2)" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white">
+        Mapa 2 (6 Bosses)
+      </button>
+    </div>
+
+    <!-- View Mode Switcher -->
+    <div class="flex items-center gap-2">
+      <button id="btnToggleOverlay" onclick="toggleOverlayMode()" class="px-3.5 py-1.5 rounded-xl text-xs font-bold border border-slate-600 bg-slate-800 hover:bg-slate-700 text-slate-200 transition-all flex items-center gap-2">
+        <span>🖥️ Testar Modo Overlay (HUD Jogo)</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- EMERGENCY CALL GERAL BANNER -->
+  <div id="callGeralBanner" class="hidden max-w-7xl mx-auto mb-4 bg-gradient-to-r from-red-600/90 via-amber-600/90 to-red-600/90 border-2 border-red-400 rounded-2xl p-3 shadow-[0_0_30px_rgba(239,68,68,0.5)] flex items-center justify-between animate-siren">
+    <div class="flex items-center gap-3">
+      <span class="text-2xl">🚨</span>
+      <div>
+        <div class="text-xs font-bold text-red-200 tracking-widest uppercase">ALERTA DO COMANDANTE GERAL (ALL-IN)</div>
+        <div id="callGeralText" class="text-base font-black text-white uppercase">TODOS CONVERGINDO PARA O BOSS</div>
+      </div>
+    </div>
+    <button id="btnClearCallGeral" onclick="clearCallGeral()" class="hidden text-xs bg-black/50 hover:bg-black/70 px-3 py-1.5 rounded-lg border border-red-300 font-bold text-white transition-all">
+      Dispersar Call Geral
+    </button>
+  </div>
+
+  <!-- MAIN WORKSPACE -->
+  <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+    <!-- LEFT: MAP CONTAINER (Cols 7) -->
+    <div class="lg:col-span-7 flex flex-col items-center justify-center bg-slate-900/80 border border-slate-800 rounded-2xl p-3 sm:p-5 relative overflow-hidden shadow-2xl min-h-[560px]">
+      
+      <div class="absolute top-3 left-4 text-[11px] font-mono text-slate-400 tracking-wider flex items-center gap-2 z-10">
+        <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+        <span id="activeMapLabel">SETOR: ARENA 1</span>
+        <span>•</span>
+        <span id="soundToggle" onclick="toggleAudio()" class="cursor-pointer text-cyan-400 hover:underline">🔊 Áudio Ativo</span>
+      </div>
+
+      <div class="absolute top-3 right-4 text-[11px] font-mono text-cyan-400/90 bg-slate-950/80 px-2 py-0.5 rounded border border-slate-800 z-10">
+        ⌨️ TECLADO ATIVO: DIGITE 1 A 6
+      </div>
+
+      <!-- MAP WRAPPER -->
+      <div id="mapWrapper" class="relative w-full max-w-[550px] aspect-square rounded-2xl overflow-hidden border border-slate-700/60 shadow-inner bg-black/90 flex items-center justify-center transition-all">
+        <img id="mapImg" src="/map_tier1.png" class="w-full h-full object-contain filter contrast-110 brightness-95 transition-all duration-300" alt="Map">
+        <div id="nodesLayer" class="absolute inset-0 pointer-events-none"></div>
+      </div>
+
+      <!-- Footer with Alliance Guilds -->
+      <div class="w-full grid grid-cols-4 sm:grid-cols-8 gap-1 text-[11px] text-slate-400 mt-3 pt-3 border-t border-slate-800/80 font-mono text-center">
+        <div><span class="text-[#9b59b6] font-bold">●</span> AFT</div>
+        <div><span class="text-[#3498db] font-bold">●</span> KTB</div>
+        <div><span class="text-[#1abc9c] font-bold">●</span> NGF</div>
+        <div><span class="text-[#e74c3c] font-bold">●</span> NOM</div>
+        <div><span class="text-[#f1c40f] font-bold">●</span> OLP</div>
+        <div><span class="text-[#e67e22] font-bold">●</span> CHP</div>
+        <div><span class="text-[#e91e63] font-bold">●</span> FSN</div>
+        <div><span class="text-[#2ecc71] font-bold">●</span> DIN</div>
+      </div>
+    </div>
+
+    <!-- RIGHT: CONTROLLER & STATUS (Cols 5) -->
+    <div class="lg:col-span-5 flex flex-col gap-4">
+
+      <!-- NUMPAD QUICK CALL CONTROLLER -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Teclado Numérico (Numpad)</span>
+          <span id="roleBadge" class="text-[11px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-mono">Modo: Visualizador</span>
+        </div>
+
+        <div class="bg-black/70 border border-slate-800 rounded-xl p-2.5 flex items-center justify-between font-mono">
+          <span class="text-xs text-slate-400">Entrada Atual:</span>
+          <span id="numpadBuffer" class="text-lg font-black tracking-widest text-cyan-400">---</span>
+          <button onclick="clearBuffer()" class="text-[10px] text-slate-500 hover:text-slate-300 uppercase">Limpar (ESC)</button>
+        </div>
+
+        <!-- On-Screen Keypad -->
+        <div class="grid grid-cols-4 gap-2 font-mono">
+          <button onclick="pressKey('7')" class="key-btn h-11 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold border border-slate-700 active:scale-95 transition-all">7</button>
+          <button onclick="pressKey('8')" class="key-btn h-11 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold border border-slate-700 active:scale-95 transition-all">8</button>
+          <button onclick="pressKey('9')" class="key-btn h-11 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold border border-slate-700 active:scale-95 transition-all">9</button>
+          <button onclick="pressKey('-')" class="key-btn h-11 rounded-xl bg-red-950/70 hover:bg-red-900 text-red-300 font-bold border border-red-800 active:scale-95 transition-all text-xs" title="Marcar Boss Morto">💀 -</button>
+
+          <button onclick="pressKey('4')" class="key-btn h-11 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold border border-slate-700 active:scale-95 transition-all">4</button>
+          <button onclick="pressKey('5')" class="key-btn h-11 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold border border-slate-700 active:scale-95 transition-all">5</button>
+          <button onclick="pressKey('6')" class="key-btn h-11 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold border border-slate-700 active:scale-95 transition-all">6</button>
+          <button onclick="pressKey('*')" class="key-btn h-11 rounded-xl bg-amber-950/70 hover:bg-amber-900 text-amber-300 font-bold border border-amber-800 active:scale-95 transition-all text-xs" title="Call Geral Aliança">🚨 *</button>
+
+          <button onclick="pressKey('1')" class="key-btn h-11 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold border border-slate-700 active:scale-95 transition-all">1</button>
+          <button onclick="pressKey('2')" class="key-btn h-11 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold border border-slate-700 active:scale-95 transition-all">2</button>
+          <button onclick="pressKey('3')" class="key-btn h-11 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold border border-slate-700 active:scale-95 transition-all">3</button>
+          <button onclick="pressKey('0')" class="key-btn h-11 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold border border-slate-700 active:scale-95 transition-all">0 (C)</button>
+        </div>
+      </div>
+
+      <!-- ALLIANCE STATUS LIST -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex-1 flex flex-col justify-between">
+        <div>
+          <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2.5 flex items-center justify-between">
+            <span>Status da Aliança em Tempo Real</span>
+            <button id="btnReset" onclick="requestReset()" class="hidden text-[11px] text-red-400 hover:underline">Reset Geral</button>
+          </div>
+
+          <div id="guildAssignmentsList" class="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <div class="mt-3 pt-3 border-t border-slate-800">
+          <div class="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Rádio da Aliança:</div>
+          <div id="tacticalLog" class="text-xs font-mono text-slate-400 space-y-1 max-h-20 overflow-y-auto">
+            <div class="text-slate-500">Aguardando eventos da war...</div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // --- MAP & BOSS DATA ---
+    const MAP_DATA = {
+      1: {
+        name: "Setor 1 - Arena 1",
+        src: "/map_tier1.png",
+        bosses: [
+          { id: 1, name: "Avok", lvl: 56, x: 74.5, y: 22.0 },
+          { id: 2, name: "Regan", lvl: 56, x: 13.0, y: 44.0 },
+          { id: 3, name: "Mildis", lvl: 56, x: 61.5, y: 87.0 },
+          { id: 0, name: "Centro", lvl: 62, x: 50.0, y: 50.0 }
+        ]
+      },
+      2: {
+        name: "Setor 2 - Arena 2",
+        src: "/map_tier2.png",
+        bosses: [
+          { id: 1, name: "Arto", lvl: 60, x: 25.5, y: 21.0 },
+          { id: 2, name: "Fera K'Valkan", lvl: 62, x: 22.5, y: 36.5 },
+          { id: 3, name: "Fera Beherd", lvl: 62, x: 77.0, y: 37.0 },
+          { id: 4, name: "Eligo", lvl: 60, x: 88.0, y: 45.5 },
+          { id: 5, name: "Lussem", lvl: 60, x: 35.8, y: 86.2 },
+          { id: 6, name: "Fera Gazoth", lvl: 62, x: 49.5, y: 82.5 },
+          { id: 0, name: "Centro", lvl: 62, x: 50.0, y: 50.0 }
+        ]
+      }
+    };
+
+    const GUILDS = {
+      AFT: { id: "AFT", name: "[AFT] Aftermath", color: "#9b59b6" },
+      KTB: { id: "KTB", name: "[KTB] Kontrabandz", color: "#3498db" },
+      NGF: { id: "NGF", name: "[NGF] NightFall", color: "#1abc9c" },
+      NOM: { id: "NOM", name: "[NOM] No Mercy", color: "#e74c3c" },
+      OLP: { id: "OLP", name: "[OLP] OLIMPO", color: "#f1c40f" },
+      CHP: { id: "CHP", name: "[CHP] CHAPA1", color: "#e67e22" },
+      FSN: { id: "FSN", name: "[FSN] Fusion", color: "#e91e63" },
+      DIN: { id: "DIN", name: "[DIN] Dinastia", color: "#2ecc71" }
+    };
+
+    let currentUser = null;
+    let currentMapId = 1;
+    let assignments = {};
+    let deadBosses = {};
+    let callGeral = null;
+    let inputBuffer = "";
+    let isOverlayMode = false;
+    let audioEnabled = true;
+
+    // --- AUDIO SYNTHESIS ---
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx) audioCtx = new AudioCtx();
+    }
+
+    function playTone(freq, duration, type="sine") {
+      if (!audioEnabled) return;
+      try {
+        initAudio();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    function playCallSound() {
+      playTone(587.33, 0.08, "sine");
+      setTimeout(() => playTone(880, 0.12, "sine"), 90);
+    }
+
+    function playAlertSiren() {
+      playTone(440, 0.15, "sawtooth");
+      setTimeout(() => playTone(660, 0.2, "sawtooth"), 160);
+      setTimeout(() => playTone(880, 0.3, "sawtooth"), 320);
+    }
+
+    function playKillSound() {
+      playTone(330, 0.12, "triangle");
+      setTimeout(() => playTone(220, 0.2, "triangle"), 100);
+    }
+
+    function toggleAudio() {
+      audioEnabled = !audioEnabled;
+      document.getElementById("soundToggle").innerText = audioEnabled ? "🔊 Áudio Ativo" : "🔇 Mudo";
+    }
+
+    // --- SOCKET.IO CLIENT CONNECTION ---
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+
+    if (!token) {
+      document.body.innerHTML = `
+        <div class="min-h-screen flex items-center justify-center p-5 text-center font-mono">
+          <div class="bg-red-950/80 border-2 border-red-500 rounded-2xl p-8 max-w-md shadow-2xl backdrop-blur-md">
+            <div class="text-4xl mb-3">⛔</div>
+            <h2 class="text-xl font-black text-white uppercase mb-2">Acesso Negado</h2>
+            <p class="text-xs text-red-300 mb-4">Você precisa de um token de autorização do Bot do Discord da Aliança para entrar.</p>
+            <p class="text-xs text-slate-400">Vá no Discord da Aliança e digite <strong>/overlay</strong> ou clique no botão do canal.</p>
+          </div>
+        </div>
+      `;
+    }
+
+    const socket = io({
+      auth: { token }
+    });
+
+    socket.on('connect_error', (err) => {
+      document.getElementById('statusDot').className = 'w-3.5 h-3.5 rounded-full bg-red-500';
+      document.getElementById('userBadge').innerText = `Erro de Conexão: ${err.message}`;
+    });
+
+    socket.on('init_state', (data) => {
+      currentUser = data.user;
+      currentMapId = data.battleState.activeMap;
+      assignments = data.battleState.assignments;
+      deadBosses = data.battleState.deadBosses;
+      callGeral = data.battleState.callGeral;
+
+      // Update UI Header
+      document.getElementById('statusDot').className = 'w-3.5 h-3.5 rounded-full bg-emerald-500';
+      document.getElementById('userBadge').innerHTML = `
+        👤 <strong>${currentUser.username}</strong> • ${currentUser.guildName} • 
+        <span class="${currentUser.canCallGeneral ? 'text-amber-400 font-bold' : (currentUser.canCallGuild ? 'text-emerald-400 font-bold' : 'text-slate-400')}">
+          ${currentUser.canCallGeneral ? '👑 Comandante' : (currentUser.canCallGuild ? '🛡️ Líder de Guild' : '⚔️ Membro')}
+        </span>
+      `;
+
+      if (currentUser.canCallGeneral) {
+        document.getElementById('btnReset').classList.remove('hidden');
+        document.getElementById('btnClearCallGeral').classList.remove('hidden');
+      }
+
+      applyMapSwitch(currentMapId);
+      if (callGeral) applyCallGeral(callGeral);
+      renderAll();
+    });
+
+    socket.on('state_updated', (data) => {
+      assignments = data.assignments;
+      playCallSound();
+      logEvent(data.action);
+      renderAll();
+    });
+
+    socket.on('call_geral_active', (data) => {
+      callGeral = data.callGeral;
+      assignments = data.assignments;
+      playAlertSiren();
+      applyCallGeral(callGeral);
+      logEvent(`🚨 [CALL GERAL] ${callGeral.author} convocou ALL-IN para ${callGeral.bossName}!`);
+      renderAll();
+    });
+
+    socket.on('call_geral_cleared', () => {
+      callGeral = null;
+      document.getElementById('callGeralBanner').classList.add('hidden');
+      logEvent('Call Geral finalizada.');
+      renderAll();
+    });
+
+    socket.on('boss_killed', (data) => {
+      deadBosses[data.bossId] = data.respawnTime;
+      assignments = data.assignments;
+      playKillSound();
+      logEvent(`💀 Boss ${data.bossId} marcado como abatido!`);
+      renderAll();
+    });
+
+    socket.on('map_switched', (data) => {
+      currentMapId = data.mapId;
+      applyMapSwitch(currentMapId);
+      logEvent(`Mapa alterado para ${MAP_DATA[currentMapId].name} por ${data.author}`);
+      renderAll();
+    });
+
+    socket.on('state_reset', (state) => {
+      assignments = state.assignments;
+      deadBosses = state.deadBosses;
+      callGeral = null;
+      document.getElementById('callGeralBanner').classList.add('hidden');
+      logEvent('🔄 Estado da guerra resetado.');
+      renderAll();
+    });
+
+    socket.on('error_msg', (msg) => {
+      alert(`Aviso: ${msg}`);
+    });
+
+    // --- ACTIONS TRIGGERED BY CLIENT ---
+    function requestMapSwitch(mapId) {
+      if (currentUser && currentUser.canCallGeneral) {
+        socket.emit('switch_map', mapId);
+      }
+    }
+
+    function applyMapSwitch(mapId) {
+      document.getElementById('mapImg').src = MAP_DATA[mapId].src;
+      document.getElementById('activeMapLabel').innerText = MAP_DATA[mapId].name.toUpperCase();
+      
+      const b1 = document.getElementById('btnMap1');
+      const b2 = document.getElementById('btnMap2');
+      if (mapId === 1) {
+        b1.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all bg-red-600 text-white shadow-lg';
+        b2.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white';
+      } else {
+        b2.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all bg-red-600 text-white shadow-lg';
+        b1.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white';
+      }
+    }
+
+    function applyCallGeral(cg) {
+      const banner = document.getElementById('callGeralBanner');
+      const text = document.getElementById('callGeralText');
+      text.innerText = `🚨 ALL-IN ALIANÇA: TODOS CONVERGINDO PARA O BOSS ${cg.bossId} (${cg.bossName})`;
+      banner.classList.remove('hidden');
+    }
+
+    function clearCallGeral() {
+      if (currentUser && currentUser.canCallGeneral) {
+        socket.emit('clear_call_geral');
+      }
+    }
+
+    function requestReset() {
+      if (currentUser && currentUser.canCallGeneral) {
+        socket.emit('reset_all');
+      }
+    }
+
+    // --- NUMPAD & KEYBOARD LISTENER ---
+    function pressKey(char) {
+      initAudio();
+
+      if (char === '-') {
+        inputBuffer = 'KILL-';
+        updateBuffer();
+        return;
+      }
+
+      if (char === '*') {
+        if (!currentUser || !currentUser.canCallGeneral) {
+          logEvent('⚠️ Apenas o Comandante Geral pode usar Call Geral (*)');
+          playTone(200, 0.2, 'sawtooth');
+          return;
+        }
+        inputBuffer = 'ALL-IN-';
+        updateBuffer();
+        return;
+      }
+
+      inputBuffer += char;
+      updateBuffer();
+      evalBuffer();
+    }
+
+    function clearBuffer() {
+      inputBuffer = '';
+      updateBuffer();
+    }
+
+    function updateBuffer() {
+      document.getElementById('numpadBuffer').innerText = inputBuffer || '---';
+    }
+
+    function evalBuffer() {
+      const bosses = MAP_DATA[currentMapId].bosses;
+
+      // Kill command: KILL-1
+      if (inputBuffer.startsWith('KILL-')) {
+        const targetIdStr = inputBuffer.replace('KILL-', '');
+        const bossId = parseInt(targetIdStr, 10);
+        const boss = bosses.find(b => b.id === bossId);
+        if (boss) {
+          socket.emit('mark_boss_dead', { bossId, respawnSeconds: 15 * 60 + 31 });
+          clearBuffer();
+          return;
+        }
+      }
+
+      // Call Geral: ALL-IN-1
+      if (inputBuffer.startsWith('ALL-IN-')) {
+        const targetIdStr = inputBuffer.replace('ALL-IN-', '');
+        const bossId = parseInt(targetIdStr, 10);
+        const boss = bosses.find(b => b.id === bossId);
+        if (boss) {
+          socket.emit('trigger_call_geral', { bossId, bossName: boss.name });
+          clearBuffer();
+          return;
+        }
+      }
+
+      // Standard call
+      let targetBossId = null;
+      if (inputBuffer.length === 1 && !isNaN(inputBuffer)) {
+        targetBossId = parseInt(inputBuffer, 10);
+      } else if (inputBuffer.length === 3 && inputBuffer.startsWith('00')) {
+        targetBossId = parseInt(inputBuffer.substring(2), 10);
+      }
+
+      if (targetBossId !== null) {
+        const boss = bosses.find(b => b.id === targetBossId);
+        if (boss && currentUser) {
+          const guildToAssign = currentUser.guildId || 'AFT';
+          socket.emit('set_guild_call', { guildId: guildToAssign, bossId: boss.id });
+          clearBuffer();
+        }
+      }
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT') return;
+
+      const key = e.key;
+      if (key >= '0' && key <= '9') {
+        pressKey(key);
+      } else if (key === '-' || key === 'NumpadSubtract') {
+        pressKey('-');
+      } else if (key === '*' || key === 'NumpadMultiply') {
+        pressKey('*');
+      } else if (key === 'Escape' || key === 'Backspace') {
+        clearBuffer();
+      }
+    });
+
+    // --- RENDER NODES OVER MAP ---
+    function renderAll() {
+      renderNodes();
+      renderGuildList();
+    }
+
+    function renderNodes() {
+      const layer = document.getElementById('nodesLayer');
+      layer.innerHTML = '';
+
+      const bosses = MAP_DATA[currentMapId].bosses;
+
+      bosses.forEach(boss => {
+        // Assigned guilds
+        const assignedGuildKeys = Object.keys(assignments).filter(k => assignments[k] === boss.id);
+        const hasAssignment = assignedGuildKeys.length > 0;
+        const isDead = deadBosses[boss.id] && deadBosses[boss.id] > Date.now();
+
+        const node = document.createElement('div');
+        node.className = 'absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-auto cursor-pointer transition-all duration-200';
+        node.style.left = `${boss.x}%`;
+        node.style.top = `${boss.y}%`;
+
+        let glowClass = '';
+        let borderStyle = 'border-slate-500/80 bg-slate-950/90 text-slate-200';
+        let badgeBadges = '';
+
+        if (isDead) {
+          borderStyle = 'border-gray-600 bg-gray-900/90 text-gray-400 opacity-60 scale-90';
+        } else if (hasAssignment) {
+          glowClass = 'animate-glow ring-4 ring-offset-2 ring-offset-black/80';
+          const firstGuild = GUILDS[assignedGuildKeys[0]];
+          if (firstGuild) {
+            node.style.borderColor = firstGuild.color;
+            node.style.backgroundColor = `${firstGuild.color}25`;
+          }
+
+          badgeBadges = assignedGuildKeys.map(k => {
+            const g = GUILDS[k];
+            return `<span class="px-1.5 py-0.5 rounded text-[9px] font-black uppercase text-white shadow-md" style="background-color:${g ? g.color : '#888'}">${k}</span>`;
+          }).join('');
+        }
+
+        let timerText = '';
+        if (isDead) {
+          const remainingSec = Math.max(0, Math.floor((deadBosses[boss.id] - Date.now()) / 1000));
+          const m = Math.floor(remainingSec / 60);
+          const s = remainingSec % 60;
+          timerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        node.innerHTML = `
+          <div class="flex flex-col items-center group" onclick="pressKey('${boss.id}')">
+            <div class="flex items-center gap-1 mb-1">
+              ${badgeBadges}
+            </div>
+
+            <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 flex items-center justify-center font-black text-sm font-mono shadow-2xl backdrop-blur-md ${borderStyle} ${glowClass}">
+              ${isDead ? '💀' : (boss.id === 0 ? 'C' : boss.id)}
+            </div>
+
+            <div class="mt-1 px-2 py-0.5 rounded-md bg-black/85 border border-slate-700/80 text-[10px] sm:text-[11px] font-bold tracking-tight whitespace-nowrap shadow-lg flex items-center gap-1">
+              <span>${boss.name}</span>
+              <span class="text-[9px] text-amber-400 font-mono">${isDead ? timerText : 'Nv.' + boss.lvl}</span>
+            </div>
+          </div>
+        `;
+
+        layer.appendChild(node);
+      });
+    }
+
+    function renderGuildList() {
+      const container = document.getElementById('guildAssignmentsList');
+      container.innerHTML = '';
+
+      const bosses = MAP_DATA[currentMapId].bosses;
+
+      Object.values(GUILDS).forEach(guild => {
+        const targetBossId = assignments[guild.id];
+        const targetBoss = bosses.find(b => b.id === targetBossId);
+
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between p-2 rounded-xl border border-slate-800 bg-slate-950/60 font-mono text-xs';
+
+        let targetHtml = `<span class="text-slate-600 italic text-[11px]">Aguardando call...</span>`;
+        if (targetBoss) {
+          targetHtml = `
+            <span class="font-black text-white px-2 py-0.5 rounded border border-white/20 shadow-md flex items-center gap-1 text-[11px]" style="background-color: ${guild.color}">
+              ➔ BOSS ${targetBoss.id === 0 ? 'CENTRO' : targetBoss.id}: ${targetBoss.name}
+            </span>
+          `;
+        }
+
+        row.innerHTML = `
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full shadow-sm" style="background-color: ${guild.color}"></span>
+            <span class="font-bold text-slate-300 text-[11px]">${guild.name}</span>
+          </div>
+          <div>${targetHtml}</div>
+        `;
+
+        container.appendChild(row);
+      });
+    }
+
+    function logEvent(msg) {
+      const log = document.getElementById('tacticalLog');
+      const time = new Date().toLocaleTimeString();
+      const div = document.createElement('div');
+      div.innerHTML = `<span class="text-slate-600">[${time}]</span> ${msg}`;
+      log.prepend(div);
+    }
+
+    function toggleOverlayMode() {
+      isOverlayMode = !isOverlayMode;
+      const body = document.body;
+      const btn = document.getElementById('btnToggleOverlay');
+      
+      if (isOverlayMode) {
+        body.classList.remove('bg-[#0b0d11]');
+        body.classList.add('bg-black/50');
+        btn.innerHTML = '<span>🔙 Voltar ao Painel Completo</span>';
+        btn.className = 'px-3.5 py-1.5 rounded-xl text-xs font-bold border border-cyan-400 bg-cyan-950 text-cyan-200 transition-all';
+      } else {
+        body.classList.remove('bg-black/50');
+        body.classList.add('bg-[#0b0d11]');
+        btn.innerHTML = '<span>🖥️ Testar Modo Overlay (HUD Jogo)</span>';
+        btn.className = 'px-3.5 py-1.5 rounded-xl text-xs font-bold border border-slate-600 bg-slate-800 hover:bg-slate-700 text-slate-200 transition-all';
+      }
+    }
+
+    // Timer tick every second for dead boss countdowns
+    setInterval(() => {
+      let hasDead = false;
+      Object.keys(deadBosses).forEach(id => {
+        if (deadBosses[id] > Date.now()) hasDead = true;
+      });
+      if (hasDead) renderNodes();
+    }, 1000);
+  </script>
+</body>
+</html>

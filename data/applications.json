@@ -2842,5 +2842,78 @@
     "sobre": "Nenhuma observação informada.",
     "status": "pending",
     "createdAt": "2026-11-09T19:06:40.018Z"
+  },
+  {
+    "id": "app_1794275623550",
+    "guildId": "guild_1793491314251",
+    "userId": "293592783820947457",
+    "userTag": "_kenshido",
+    "nick": "ErzaEscarlet",
+    "classe": "Bloodstained",
+    "horarios": "72. Não tenho um horário fixo.",
+    "sobre": "Nenhuma observação informada.",
+    "status": "pending",
+    "createdAt": "2026-11-10T01:53:43.550Z"
+  },
+  {
+    "id": "app_1794335471036",
+    "guildId": "guild_1793298314017",
+    "userId": "927033537851449444",
+    "userTag": ".mrlion.",
+    "nick": "TTT",
+    "classe": "TTT",
+    "horarios": "TTT",
+    "sobre": "Nenhuma observação informada.",
+    "status": "pending",
+    "createdAt": "2026-11-10T18:31:11.036Z"
+  },
+  {
+    "id": "trans_1794336340967",
+    "type": "transfer",
+    "guildId": "guild_1793291080761",
+    "oldGuildId": "guild_1793298314017",
+    "oldGuildTag": "NOM",
+    "userId": "404318366833049607",
+    "userTag": "nobody.5463",
+    "nick": "Nobody",
+    "motivo": "Troquei de guild.",
+    "status": "pending",
+    "createdAt": "2026-11-10T18:45:40.967Z"
+  },
+  {
+    "id": "app_1794336399055",
+    "guildId": "guild_1793311847982",
+    "userId": "484156397198770177",
+    "userTag": "nems3i",
+    "nick": "aLedinha",
+    "classe": "Carnage",
+    "horarios": "lvl 72",
+    "sobre": "joguei varios",
+    "status": "pending",
+    "createdAt": "2026-11-10T18:46:39.055Z"
+  },
+  {
+    "id": "app_1794336433132",
+    "guildId": "guild_1793491314251",
+    "userId": "310647701761032193",
+    "userTag": "minusxd",
+    "nick": "Taurus",
+    "classe": "Carnage",
+    "horarios": "75 e jogo praticamente dia todo",
+    "sobre": "Sou jogador antigo de jogos MMORPG, comecei no lineage, RF, wow entre outros e ultimo jogo antes desse foi o RF",
+    "status": "pending",
+    "createdAt": "2026-11-10T18:47:13.132Z"
+  },
+  {
+    "id": "app_1794336912415",
+    "guildId": "guild_1793311847982",
+    "userId": "330802915780591617",
+    "userTag": "thanathusx",
+    "nick": "Thanathus",
+    "classe": "Carnage",
+    "horarios": "72 - a tarde e a noite",
+    "sobre": "RF, MIR, NC, estou na guild pq conheço alguns membros",
+    "status": "pending",
+    "createdAt": "2026-11-10T18:55:12.415Z"
   }
 ]

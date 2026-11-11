@@ -26,6 +26,7 @@ const {
   getUserAttendanceSummary,
   getMemberGuild
 } = require('../attendance_manager');
+const { createAuthResponse } = require('../services/overlayService');
 
 /**
  * Roteia e trata todas as interações de botão (interaction.isButton())
@@ -47,6 +48,15 @@ async function handleButton(interaction, refreshServerStats) {
     await interaction.deferUpdate();
     await renderOrUpdateVoicePanel(guild, interaction.channel);
     return;
+  }
+
+  // --- BOTÃO DE ACESSO AO OVERLAY TÁTICO ---
+  if (customId === 'btn_get_overlay') {
+    const res = createAuthResponse(interaction.member);
+    if (!res.success) {
+      return interaction.reply({ content: res.message, ephemeral: true });
+    }
+    return interaction.reply({ embeds: res.embeds, components: res.components, ephemeral: true });
   }
 
   // --- BOTÃO INICIAR CHECK-IN DE GEENA ---

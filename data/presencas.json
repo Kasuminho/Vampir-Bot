@@ -176,10 +176,10 @@
       "guildName": "NightFall",
       "printUrl": "https://cdn.discordapp.com/ephemeral-attachments/1566613320650199171/1569054176577851572/image.png?ex=6af20f13&is=6af0bd93&hm=dc0fe09369d9e360d9545d95cdd58b90e5ff31f9b0694d5962de9d79abd05e46&",
       "note": "",
-      "status": "pending",
+      "status": "approved",
       "createdAt": "2026-11-08T18:21:08.000Z",
-      "validatedBy": null,
-      "validatedAt": null,
+      "validatedBy": "596480584923217931",
+      "validatedAt": "2026-11-10T18:55:38.906Z",
       "rejectionReason": null,
       "validationMessageId": "1569054182542155972",
       "validationChannelId": "1569013285481873482"
@@ -1135,6 +1135,18 @@
       "timesPiloting": 0,
       "lastEvent": "Geena 15:00",
       "lastDate": "2026-11-08T22:05:33.000Z"
+    },
+    "321463583240355850": {
+      "userId": "321463583240355850",
+      "userTag": "viniciusmac",
+      "guildId": "guild_1793311847982",
+      "guildTag": "NGF",
+      "totalPresencas": 1,
+      "asTitular": 1,
+      "asPilot": 0,
+      "timesPiloting": 0,
+      "lastEvent": "Geena 15:00",
+      "lastDate": "2026-11-10T18:55:38.906Z"
     }
   },
   "panelMessageId": "1569013308621594805",

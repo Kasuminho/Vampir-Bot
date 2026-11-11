@@ -335,7 +335,16 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('ajuda')
-    .setDescription('Exibe os comandos disponíveis e guia do sistema')
+    .setDescription('Exibe os comandos disponíveis e guia do sistema'),
+
+  new SlashCommandBuilder()
+    .setName('overlay')
+    .setDescription('Gera seu link seguro e exclusivo de acesso ao Overlay Tático'),
+
+  new SlashCommandBuilder()
+    .setName('painel-overlay')
+    .setDescription('Envia o botão fixo de acesso ao Overlay no canal atual (Apenas Staff)')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
 ];
 
 module.exports = { commands };

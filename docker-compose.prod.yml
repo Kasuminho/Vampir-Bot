@@ -7,15 +7,33 @@ services:
       dockerfile: Dockerfile
     container_name: vampir-bot
     restart: always
+    ports:
+      - "3000:3000"
     env_file:
       - .env
     environment:
       - NODE_ENV=production
       - TZ=America/Sao_Paulo
+      - OVERLAY_PORT=3000
+      - TUNNEL_LOG_PATH=/shared/tunnel.log
     volumes:
       - ./data:/app/data
+      - tunnel-data:/shared
+    depends_on:
+      - vampir-tunnel
     logging:
       driver: "json-file"
       options:
         max-size: "20m"
         max-file: "5"
+
+  vampir-tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: vampir-tunnel
+    restart: always
+    command: tunnel --no-autoupdate --url http://vampir-bot:3000 --logfile /shared/tunnel.log
+    volumes:
+      - tunnel-data:/shared
+
+volumes:
+  tunnel-data:

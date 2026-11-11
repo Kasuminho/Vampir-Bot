@@ -21,6 +21,7 @@ const { handleSelectMenu } = require('./handlers/selectMenuHandler');
 const { handleAutoTranslation } = require('./handlers/chatTranslationHandler');
 const { refreshServerStats } = require('./services/statsService');
 const { startHeartbeatService } = require('./services/heartbeatService');
+const { startOverlayService } = require('./services/overlayService');
 
 const client = new Client({
   intents: [
@@ -105,6 +106,14 @@ client.once('ready', async () => {
 
   // Sincronizar canais de estatísticas imediatamente no startup
   await refreshServerStats(client);
+
+  // Inicializa o Servidor Web e WebSocket do Overlay Tático
+  try {
+    startOverlayService(client);
+    console.log('[OVERLAY] Serviço de Overlay Tático e WebSockets inicializado!');
+  } catch (err) {
+    console.error('[OVERLAY] Falha ao iniciar serviço de overlay:', err);
+  }
 
   // Rotina de Atualização de Estatísticas (Stats a cada 10 min)
   setInterval(() => {
