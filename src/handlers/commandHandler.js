@@ -1,4 +1,4 @@
-const { Colors, EmbedBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
+const { Colors, EmbedBuilder, ChannelType, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const {
   getServerConfig,
   getGuilds,
