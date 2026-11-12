@@ -67,8 +67,8 @@ async function renderRecruitmentPanel(discordGuild, targetChannel) {
     .setDescription(
       'Bem-vindo ao centro oficial de recrutamento da **Coalizão Vampir**!\n\n' +
       '### 🏰 Legiões da Coalizão Oficial:\n' +
-      '• ⚔️ **Servidor Rust 2:** `OLIMPO` • `No Mercy` • `NightFall` • `Kontrabandz` • `Aftermath` • `Fusion`\n' +
-      '• 🛡️ **Servidor Rust 1 (Aliada Oficial):** `CHAPA1`\n\n' +
+      registeredGuilds.map(g => `• ⚔️ **[${g.tag}] ${g.name}** (Liderança: <@${g.leaderId}>)`).join('\n') +
+      '\n\n' +
       '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
       '### 📋 Como Funciona a Candidatura:\n' +
       '1. Escolha a legião desejada no catálogo abaixo e clique em **`✉️ Aplicar para [TAG]`**.\n' +

@@ -42,6 +42,11 @@ const commands = [
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   new SlashCommandBuilder()
+    .setName('painel-transferencia')
+    .setDescription('Atualiza ou publica a central oficial de transferência de guildas')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+
+  new SlashCommandBuilder()
     .setName('listar-guilds')
     .setDescription('Lista todas as guilds cadastradas no sistema')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
@@ -362,7 +367,8 @@ const commands = [
           { name: '🏰 [KTB] Kontrabandz', value: 'KTB' },
           { name: '🏰 [AFT] Aftermath', value: 'AFT' },
           { name: '🏰 [CHP] CHAPA1', value: 'CHP' },
-          { name: '🏰 [FSN] Fusion', value: 'FSN' }
+          { name: '🏰 [FSN] Fusion', value: 'FSN' },
+          { name: '🏰 [SPF] SempreFI', value: 'SPF' }
         )
     )
     .addIntegerOption(opt =>

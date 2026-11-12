@@ -14,6 +14,7 @@ const {
   findGuildsByCallerId
 } = require('../data_manager');
 const { renderRecruitmentPanel, updateSingleGuildCard } = require('../recruitment_panel');
+const { renderOrUpdateTransferPanel } = require('../transfer_panel');
 const {
   getBossData,
   saveBossData,
@@ -220,6 +221,12 @@ async function handleCommand(interaction, refreshServerStats) {
     if (config?.channels?.recrutamento) {
       guild.channels.fetch(config.channels.recrutamento)
         .then(ch => { if (ch) updateSingleGuildCard(guild, ch, targetGuild); })
+        .catch(() => {});
+    }
+
+    if (config?.channels?.transferencia) {
+      guild.channels.fetch(config.channels.transferencia)
+        .then(ch => { if (ch) renderOrUpdateTransferPanel(guild, ch); })
         .catch(() => {});
     }
 
@@ -1180,7 +1187,26 @@ async function handleCommand(interaction, refreshServerStats) {
     const chRecrutamento = await guild.channels.fetch(config.channels.recrutamento);
     await renderRecruitmentPanel(guild, chRecrutamento);
 
-    return interaction.editReply('✅ Painel de recrutamento atualizado com sucesso!');
+    if (config?.channels?.transferencia) {
+      guild.channels.fetch(config.channels.transferencia).then(ch => {
+        if (ch) renderOrUpdateTransferPanel(guild, ch);
+      }).catch(() => {});
+    }
+
+    return interaction.editReply('✅ Painéis de recrutamento e transferência atualizados com sucesso!');
+  }
+
+  // --- /painel-transferencia ---
+  if (commandName === 'painel-transferencia') {
+    await interaction.deferReply({ ephemeral: true });
+    if (!config || !config.channels || !config.channels.transferencia) {
+      return interaction.editReply('Erro: Canal de transferência não encontrado nas configurações.');
+    }
+
+    const chTransferencia = await guild.channels.fetch(config.channels.transferencia);
+    await renderOrUpdateTransferPanel(guild, chTransferencia);
+
+    return interaction.editReply('✅ Central oficial de transferências atualizada com sucesso com todas as legiões ativas!');
   }
 
   // --- /criar-guild ---
@@ -1334,6 +1360,12 @@ async function handleCommand(interaction, refreshServerStats) {
       if (config?.channels?.recrutamento) {
         guild.channels.fetch(config.channels.recrutamento).then(ch => {
           if (ch) renderRecruitmentPanel(guild, ch);
+        }).catch(() => {});
+      }
+
+      if (config?.channels?.transferencia) {
+        guild.channels.fetch(config.channels.transferencia).then(ch => {
+          if (ch) renderOrUpdateTransferPanel(guild, ch);
         }).catch(() => {});
       }
 

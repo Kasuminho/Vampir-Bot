@@ -4,6 +4,7 @@ const { Client, GatewayIntentBits, REST, Routes } = require('discord.js');
 const { commands } = require('./commands');
 const { initDataManager, getServerConfig } = require('./data_manager');
 const { renderRecruitmentPanel } = require('./recruitment_panel');
+const { renderOrUpdateTransferPanel } = require('./transfer_panel');
 const {
   initBossManager,
   renderOrUpdateBossPanel,
@@ -65,6 +66,20 @@ client.once('ready', async () => {
       }
     } catch (err) {
       console.warn('[AVISO] Não foi possível atualizar painel no startup:', err.message);
+    }
+  }
+
+  // Renderizar a central oficial de transferência caso o canal exista
+  if (config?.channels?.transferencia) {
+    try {
+      const guild = await client.guilds.fetch(process.env.GUILD_ID);
+      const chTransferencia = await guild.channels.fetch(config.channels.transferencia);
+      if (chTransferencia) {
+        await renderOrUpdateTransferPanel(guild, chTransferencia);
+        console.log('[TRANSFER] Central de transferências verificada e atualizada com as guildas ativas!');
+      }
+    } catch (err) {
+      console.warn('[AVISO] Não foi possível atualizar painel de transferências no startup:', err.message);
     }
   }
 
