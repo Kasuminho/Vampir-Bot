@@ -566,6 +566,19 @@ async function handleButton(interaction, refreshServerStats) {
       console.warn('[TRANSFER] Falha ao atualizar cargos do membro:', err.message);
     }
 
+    // Atualiza o vínculo de presenças do jogador transferido para acompanhar a nova guilda
+    try {
+      const { transferUserAttendance, renderOrUpdatePresencePanel } = require('../attendance_manager');
+      await transferUserAttendance(candidateMember.id, targetGuild);
+      if (config?.channels?.painelPresencas) {
+        guild.channels.fetch(config.channels.painelPresencas).then(ch => {
+          if (ch) renderOrUpdatePresencePanel(guild, ch);
+        }).catch(() => {});
+      }
+    } catch (err) {
+      console.warn('[TRANSFER] Aviso ao transferir presenças:', err.message);
+    }
+
     // 3. Atualiza a mensagem no canal de aprovações
     const currentEmbed = interaction.message.embeds[0];
     const updatedEmbed = EmbedBuilder.from(currentEmbed)

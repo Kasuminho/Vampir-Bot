@@ -989,7 +989,43 @@ function getUserAttendanceSummary(userId) {
   };
 }
 
+
+/**
+ * Atualiza o vínculo de presenças de um jogador ao ser transferido de guilda
+ */
+async function transferUserAttendance(userId, newGuild) {
+  const data = getAttendanceData();
+  let changed = false;
+
+  if (data.users && data.users[userId]) {
+    data.users[userId].guildId = newGuild.id;
+    data.users[userId].guildTag = newGuild.tag;
+    changed = true;
+    if (isConnected()) {
+      attendanceRepo.upsertAttendanceUser(data.users[userId]).catch(() => {});
+    }
+  }
+
+  // Atualiza as submissões do jogador para acompanharem a nova legião
+  for (const sub of Object.values(data.submissions || {})) {
+    if (sub.ownerUserId === userId) {
+      sub.guildId = newGuild.id;
+      sub.guildTag = newGuild.tag;
+      sub.guildName = newGuild.name;
+      changed = true;
+      if (isConnected()) {
+        attendanceRepo.upsertSubmission(sub).catch(() => {});
+      }
+    }
+  }
+
+  if (changed) {
+    saveAttendanceData(data);
+  }
+}
+
 module.exports = {
+  transferUserAttendance,
   initAttendanceManager,
   GEENA_SCHEDULE,
   getAttendanceData,
