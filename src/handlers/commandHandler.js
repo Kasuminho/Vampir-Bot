@@ -47,6 +47,41 @@ function parseHexColor(input) {
   return '#9B59B6';
 }
 
+/**
+ * Retorna todos os canais de gestão/liderança de uma guilda (aprovações e validação-geena)
+ */
+async function getGuildLeadershipChannels(guild, targetGuild) {
+  const channels = [];
+
+  // 1. Canal de aprovações
+  let chAprov = null;
+  if (targetGuild.approvalsChannelId) {
+    chAprov = await guild.channels.fetch(targetGuild.approvalsChannelId).catch(() => null);
+  }
+  if (!chAprov && targetGuild.categoryId) {
+    const allChannels = await guild.channels.fetch().catch(() => null);
+    if (allChannels) {
+      chAprov = allChannels.find(c => c && c.parentId === targetGuild.categoryId && c.name.includes('aprov'));
+    }
+  }
+  if (chAprov) channels.push(chAprov);
+
+  // 2. Canal de validação Geena
+  let chValid = null;
+  if (targetGuild.attendanceValidationChannelId) {
+    chValid = await guild.channels.fetch(targetGuild.attendanceValidationChannelId).catch(() => null);
+  }
+  if (!chValid && targetGuild.categoryId) {
+    const allChannels = await guild.channels.fetch().catch(() => null);
+    if (allChannels) {
+      chValid = allChannels.find(c => c && c.parentId === targetGuild.categoryId && c.name.includes('valid'));
+    }
+  }
+  if (chValid) channels.push(chValid);
+
+  return channels;
+}
+
 async function handleCommand(interaction, refreshServerStats) {
   const config = getServerConfig();
   const guild = interaction.guild;
@@ -314,16 +349,16 @@ async function handleCommand(interaction, refreshServerStats) {
       addGuildOfficer(targetGuild.id, targetUser.id);
 
       try {
-        const chAprovacoes = await guild.channels.fetch(targetGuild.approvalsChannelId);
-        if (chAprovacoes) {
-          await chAprovacoes.permissionOverwrites.edit(targetUser.id, {
+        const leadershipChannels = await getGuildLeadershipChannels(guild, targetGuild);
+        for (const ch of leadershipChannels) {
+          await ch.permissionOverwrites.edit(targetUser, {
             ViewChannel: true,
             SendMessages: true,
             ReadMessageHistory: true
           });
         }
       } catch (err) {
-        console.warn('[STAFF] Falha ao dar permissão em canal:', err.message);
+        console.warn('[STAFF] Falha ao dar permissão em canais da liderança:', err.message);
       }
 
       try {
@@ -337,7 +372,7 @@ async function handleCommand(interaction, refreshServerStats) {
         console.warn('[STAFF] Falha ao dar cargo a oficial:', err.message);
       }
 
-      await interaction.editReply(`✅ <@${targetUser.id}> foi promovido a **Oficial / Vice-Líder** de **[${targetGuild.tag}] ${targetGuild.name}**!\nEle agora possui acesso ao canal secreto de aprovações e à Cúpula de Líderes.`);
+      await interaction.editReply(`✅ <@${targetUser.id}> foi promovido a **Oficial / Vice-Líder** de **[${targetGuild.tag}] ${targetGuild.name}**!\nEle agora possui acesso aos canais de **aprovações**, **validação de presenças (Geena)** e à Cúpula de Líderes.`);
 
       if (config?.channels?.recrutamento) {
         guild.channels.fetch(config.channels.recrutamento)
@@ -371,14 +406,21 @@ async function handleCommand(interaction, refreshServerStats) {
       removeGuildOfficer(targetGuild.id, targetUser.id);
 
       try {
-        const chAprovacoes = await guild.channels.fetch(targetGuild.approvalsChannelId);
-        if (chAprovacoes) await chAprovacoes.permissionOverwrites.delete(targetUser.id).catch(() => {});
-      } catch {}
+        const leadershipChannels = await getGuildLeadershipChannels(guild, targetGuild);
+        for (const ch of leadershipChannels) {
+          await ch.permissionOverwrites.delete(targetUser.id).catch(() => {});
+        }
+      } catch (err) {
+        console.warn('[STAFF] Falha ao remover permissões em canais da liderança:', err.message);
+      }
 
       try {
         const targetMember = await guild.members.fetch(targetUser.id);
         if (targetMember && config?.roles?.oficial) {
-          await targetMember.roles.remove(config.roles.oficial).catch(() => {});
+          const otherOfficerGuilds = getGuilds().filter(g => g.id !== targetGuild.id && g.officerIds && g.officerIds.includes(targetUser.id));
+          if (otherOfficerGuilds.length === 0) {
+            await targetMember.roles.remove(config.roles.oficial).catch(() => {});
+          }
         }
       } catch {}
 
@@ -415,15 +457,28 @@ async function handleCommand(interaction, refreshServerStats) {
       setGuildLeader(targetGuild.id, targetUser.id);
 
       try {
-        const chAprovacoes = await guild.channels.fetch(targetGuild.approvalsChannelId);
-        if (chAprovacoes) {
-          await chAprovacoes.permissionOverwrites.edit(targetUser.id, {
+        const leadershipChannels = await getGuildLeadershipChannels(guild, targetGuild);
+        for (const ch of leadershipChannels) {
+          // Permissão para o novo Líder Principal
+          await ch.permissionOverwrites.edit(targetUser, {
             ViewChannel: true,
             SendMessages: true,
             ReadMessageHistory: true
-          });
+          }).catch(() => {});
+
+          // Permissão para o Líder anterior (que permanece como oficial)
+          const oldLeaderUser = await guild.client.users.fetch(oldLeaderId).catch(() => null);
+          if (oldLeaderUser) {
+            await ch.permissionOverwrites.edit(oldLeaderUser, {
+              ViewChannel: true,
+              SendMessages: true,
+              ReadMessageHistory: true
+            }).catch(() => {});
+          }
         }
-      } catch {}
+      } catch (err) {
+        console.warn('[STAFF] Falha ao atualizar permissões na transferência:', err.message);
+      }
 
       try {
         const newLeaderMember = await guild.members.fetch(targetUser.id);
