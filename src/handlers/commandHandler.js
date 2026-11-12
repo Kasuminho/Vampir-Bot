@@ -157,9 +157,12 @@ async function handleCommand(interaction, refreshServerStats) {
       targetGuild = userGuilds[0];
     }
 
+    const isMasterAdmin = interaction.user.id === '273600843251712020' ||
+      interaction.user.id === guild.ownerId ||
+      interaction.member.permissions.has(PermissionFlagsBits.Administrator);
     const isMainLeader = interaction.user.id === targetGuild.leaderId;
     const isOfficer = targetGuild.officerIds && targetGuild.officerIds.includes(interaction.user.id);
-    const isStaffGeneral = config?.roles?.staff && interaction.member.roles.cache.has(config.roles.staff);
+    const isStaffGeneral = isMasterAdmin || (config?.roles?.staff && interaction.member.roles.cache.has(config.roles.staff));
 
     // Se estiver tentando alterar a TAG, exige Líder Principal ou Staff Geral
     if (novaTagInput && !isMainLeader && !isStaffGeneral) {
@@ -296,6 +299,10 @@ async function handleCommand(interaction, refreshServerStats) {
     const allGuilds = getGuilds();
     let targetGuild = null;
 
+    const isMasterAdmin = interaction.user.id === '273600843251712020' ||
+      interaction.user.id === guild.ownerId ||
+      interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+
     if (tagInput) {
       targetGuild = allGuilds.find(g => g.tag.toUpperCase() === tagInput.toUpperCase().trim());
       if (!targetGuild) {
@@ -303,6 +310,9 @@ async function handleCommand(interaction, refreshServerStats) {
       }
     } else {
       const userGuilds = findGuildsByLeaderId(interaction.user.id);
+      if (isMasterAdmin && userGuilds.length !== 1) {
+        return interaction.editReply('⚙️ **Modo SuperAdmin:** Você possui passe livre para gerenciar qualquer guild! Por favor, informe o parâmetro `tag` da guild desejada (ex: `/guild-staff acao:Adicionar usuario:@Membro tag:CHP`).');
+      }
       if (userGuilds.length === 0) {
         return interaction.editReply('❌ Você não é líder ou oficial de nenhuma guild registrada. Se você for da Staff Geral, forneça a opção `tag` para especificar a guild.');
       }
@@ -314,7 +324,7 @@ async function handleCommand(interaction, refreshServerStats) {
     }
 
     const isMainLeader = interaction.user.id === targetGuild.leaderId;
-    const isStaffGeneral = config?.roles?.staff && interaction.member.roles.cache.has(config.roles.staff);
+    const isStaffGeneral = isMasterAdmin || (config?.roles?.staff && interaction.member.roles.cache.has(config.roles.staff));
 
     if (acao === 'listar') {
       const officersList = targetGuild.officerIds && targetGuild.officerIds.length > 0
@@ -556,7 +566,10 @@ async function handleCommand(interaction, refreshServerStats) {
       }
     }
 
-    const isStaff = interaction.member.permissions.has(PermissionFlagsBits.Administrator) ||
+    const isMasterAdmin = interaction.user.id === '273600843251712020' ||
+      interaction.user.id === guild.ownerId ||
+      interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+    const isStaff = isMasterAdmin ||
       (config?.roles?.staff && interaction.member.roles.cache.has(config.roles.staff));
 
     // Se ainda não encontrou guild e for Staff
@@ -778,8 +791,11 @@ async function handleCommand(interaction, refreshServerStats) {
       }
     }
 
-    // 2. Verificação de permissões: Deve ser Líder ou Oficial daquela guild, ou Staff/Admin
-    const isStaff = member.roles.cache.has(config.roles.staff) || member.permissions.has(PermissionFlagsBits.Administrator);
+    // 2. Verificação de permissões: Deve ser Líder ou Oficial daquela guild, ou Staff/Admin/Master
+    const isMasterAdmin = interaction.user.id === '273600843251712020' ||
+      interaction.user.id === guild.ownerId ||
+      member.permissions.has(PermissionFlagsBits.Administrator);
+    const isStaff = isMasterAdmin || (config?.roles?.staff && member.roles.cache.has(config.roles.staff));
     const isLider = targetGuild && targetGuild.leaderId === interaction.user.id;
     const isOficial = targetGuild && targetGuild.officerIds && targetGuild.officerIds.includes(interaction.user.id);
 
