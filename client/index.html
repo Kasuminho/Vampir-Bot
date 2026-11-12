@@ -123,13 +123,13 @@
 
         <!-- Quick Hotkey Guide -->
         <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5 text-[10px] text-slate-300 space-y-1 leading-tight">
-          <div class="font-bold text-slate-400 uppercase text-[9px] mb-1">⌨️ Atalhos Rápidos (Numpad ou Teclado):</div>
+          <div class="font-bold text-slate-400 uppercase text-[9px] mb-1">⌨️ Comandos Numpad (Mão Direita):</div>
+          <div><kbd class="px-1 bg-slate-800 rounded text-amber-400 font-bold">0 + 1-8</kbd> Selecionar Guilda (01 a 08)</div>
           <div><kbd class="px-1 bg-slate-800 rounded text-cyan-300 font-bold">1-6</kbd> Alocar Boss correspondente</div>
-          <div><kbd class="px-1 bg-slate-800 rounded text-cyan-300 font-bold">0</kbd> Alocar Boss Central</div>
+          <div><kbd class="px-1 bg-slate-800 rounded text-amber-400 font-bold">* + 1-6</kbd> ALL-IN Geral no Boss</div>
           <div><kbd class="px-1 bg-slate-800 rounded text-emerald-300 font-bold">/</kbd> Alternar Foco: Boss / PVP</div>
           <div><kbd class="px-1 bg-slate-800 rounded text-amber-300 font-bold">+</kbd> Trocar Mapa (1 vs 2)</div>
           <div><kbd class="px-1 bg-slate-800 rounded text-red-300 font-bold">-</kbd> Marcar Boss Morto (Timer)</div>
-          <div><kbd class="px-1 bg-slate-800 rounded text-amber-400 font-bold">*</kbd> Call Geral / ALL-IN</div>
           <div><kbd class="px-1 bg-slate-800 rounded text-purple-300 font-bold">F8</kbd> Travar / Destravar Cliques</div>
         </div>
 
@@ -231,16 +231,17 @@
       }
     };
 
-        const GUILD_HOTKEYS = {
-      'q': 'NOM',
-      'w': 'NGF',
-      'e': 'AFT',
-      'r': 'KTB',
-      't': 'OLP',
-      'y': 'CHP',
-      'u': 'FSN',
-      'i': 'DIN'
+        const GUILD_NUM_MAP = {
+      '1': 'NOM',
+      '2': 'NGF',
+      '3': 'AFT',
+      '4': 'KTB',
+      '5': 'OLP',
+      '6': 'CHP',
+      '7': 'FSN',
+      '8': 'DIN'
     };
+    let isGuildSelectArmed = false;
     const GUILDS = {
       AFT: { id: "AFT", name: "[AFT] Aftermath", color: "#9b59b6" },
       KTB: { id: "KTB", name: "[KTB] Kontrabandz", color: "#3498db" },
@@ -637,6 +638,7 @@
         playTone(200, 0.2, 'sawtooth');
         return;
       }
+      isGuildSelectArmed = false;
       isCallGeralPrimed = !isCallGeralPrimed;
       const banner = document.getElementById('callGeralBanner');
       const text = document.getElementById('callGeralText');
@@ -681,22 +683,49 @@
       }
     }
 
-    // Keyboard Listener
+    // Keyboard Listener (100% Numpad - 0% Letras/WASD)
     window.addEventListener('keydown', (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
       const key = e.key;
-      const keyLower = key.toLowerCase();
 
-      // Atalhos de seleção de guilda (Q, W, E, R, T, Y, U, I)
-      if (GUILD_HOTKEYS[keyLower]) {
+      // Atalho 0: Armar seleção de guilda via Numpad (0 + 1-8 -> Guilda)
+      if (key === '0' || key === 'Numpad0') {
         if (currentUser && (currentUser.canCallGeneral || currentUser.canCallGuild)) {
-          selectGuildForDispatch(GUILD_HOTKEYS[keyLower]);
+          isCallGeralPrimed = false;
+          isGuildSelectArmed = !isGuildSelectArmed;
+          playCallSound();
+          const banner = document.getElementById('callGeralBanner');
+          const text = document.getElementById('callGeralText');
+          if (isGuildSelectArmed) {
+            banner.classList.remove('hidden');
+            banner.classList.add('flex');
+            text.innerHTML = '🏰 <strong>SELEÇÃO DE GUILDA (NUMPAD):</strong> DIGITE 1 A 8 PARA ESCOLHER A GUILDA';
+          } else {
+            if (!callGeral) {
+              banner.classList.add('hidden');
+              banner.classList.remove('flex');
+            }
+          }
           return;
         }
       }
 
-      if (key >= '0' && key <= '9') {
+      // Se armou 0 e digitou 1-8: Escolhe a Guilda
+      if (isGuildSelectArmed && key >= '1' && key <= '8') {
+        const targetGuild = GUILD_NUM_MAP[key];
+        if (targetGuild) {
+          selectGuildForDispatch(targetGuild);
+          isGuildSelectArmed = false;
+          const banner = document.getElementById('callGeralBanner');
+          const text = document.getElementById('callGeralText');
+          text.innerHTML = `🎯 <strong>[${targetGuild}] SELECIONADA:</strong> DIGITE O BOSS (1 A 6) OU CLIQUE NO MAPA`;
+          return;
+        }
+      }
+
+      // Se digitou número do Boss (1 a 6)
+      if (key >= '1' && key <= '6') {
         executeBossCall(parseInt(key, 10));
       } else if (key === '-' || key === 'NumpadSubtract') {
         if (socket && currentUser) {
@@ -714,6 +743,7 @@
       } else if (key === 'Escape' || key === 'Backspace') {
         selectedGuildForDispatch = null;
         isCallGeralPrimed = false;
+        isGuildSelectArmed = false;
         renderDispatchList();
         const banner = document.getElementById('callGeralBanner');
         if (!callGeral && banner) {
@@ -906,8 +936,8 @@
           `;
         }
 
-        const hotkeyChar = Object.keys(GUILD_HOTKEYS).find(k => GUILD_HOTKEYS[k] === guild.id);
-        const hotkeyBadge = hotkeyChar ? `<kbd class="px-1 py-0.2 bg-slate-800 border border-slate-700 rounded text-[9px] text-cyan-400 font-bold font-mono">${hotkeyChar.toUpperCase()}</kbd>` : '';
+        const numKey = Object.keys(GUILD_NUM_MAP).find(k => GUILD_NUM_MAP[k] === guild.id);
+        const hotkeyBadge = numKey ? `<kbd class="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-[9px] text-amber-400 font-bold font-mono">0${numKey}</kbd>` : '';
 
         row.innerHTML = `
           <div class="flex items-center gap-1.5">

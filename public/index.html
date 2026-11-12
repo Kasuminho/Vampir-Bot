@@ -232,16 +232,17 @@
       }
     };
 
-        const GUILD_HOTKEYS = {
-      'q': 'NOM',
-      'w': 'NGF',
-      'e': 'AFT',
-      'r': 'KTB',
-      't': 'OLP',
-      'y': 'CHP',
-      'u': 'FSN',
-      'i': 'DIN'
+        const GUILD_NUM_MAP = {
+      '1': 'NOM',
+      '2': 'NGF',
+      '3': 'AFT',
+      '4': 'KTB',
+      '5': 'OLP',
+      '6': 'CHP',
+      '7': 'FSN',
+      '8': 'DIN'
     };
+    let isGuildSelectArmed = false;
     const GUILDS = {
       AFT: { id: "AFT", name: "[AFT] Aftermath", color: "#9b59b6" },
       KTB: { id: "KTB", name: "[KTB] Kontrabandz", color: "#3498db" },
@@ -588,6 +589,7 @@
         playTone(200, 0.2, 'sawtooth');
         return;
       }
+      isGuildSelectArmed = false;
       isCallGeralPrimed = !isCallGeralPrimed;
       if (isCallGeralPrimed) {
         selectedGuildForDispatch = null;
@@ -733,22 +735,54 @@
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
       const key = e.key;
-      const keyLower = key.toLowerCase();
 
-      // Atalhos de seleção de guilda (Q, W, E, R, T, Y, U, I)
-      if (GUILD_HOTKEYS[keyLower]) {
+      // Atalho 0: Armar seleção de guilda no Numpad (0 + 1-8 -> Guilda)
+      if (key === '0' || key === 'Numpad0') {
         if (currentUser && (currentUser.canCallGeneral || currentUser.canCallGuild)) {
-          selectGuildForDispatch(GUILD_HOTKEYS[keyLower]);
+          isCallGeralPrimed = false;
+          isGuildSelectArmed = !isGuildSelectArmed;
+          playCallSound();
+          const banner = document.getElementById('callGeralBanner');
+          const text = document.getElementById('callGeralText');
+          if (isGuildSelectArmed) {
+            banner.classList.remove('hidden');
+            banner.classList.add('flex');
+            text.innerHTML = '🏰 <strong>SELEÇÃO DE GUILDA (NUMPAD):</strong> DIGITE 1 A 8 PARA ESCOLHER A GUILDA';
+            const numBuffer = document.getElementById('numpadBuffer');
+            if (numBuffer) numBuffer.innerText = 'GUILDA 0...';
+          } else {
+            if (!callGeral) {
+              banner.classList.add('hidden');
+              banner.classList.remove('flex');
+            }
+            const numBuffer = document.getElementById('numpadBuffer');
+            if (numBuffer) numBuffer.innerText = '---';
+          }
           return;
         }
       }
 
-      if (key >= '0' && key <= '9') {
-        pressKey(key);
+      // Se digitou 1-8 após o 0: Seleciona a Guilda
+      if (isGuildSelectArmed && key >= '1' && key <= '8') {
+        const targetGuild = GUILD_NUM_MAP[key];
+        if (targetGuild) {
+          selectGuildForDispatch(targetGuild);
+          isGuildSelectArmed = false;
+          const banner = document.getElementById('callGeralBanner');
+          const text = document.getElementById('callGeralText');
+          text.innerHTML = `🎯 <strong>[${targetGuild}] SELECIONADA:</strong> DIGITE O BOSS (1 A 6) OU CLIQUE NO MAPA`;
+          const numBuffer = document.getElementById('numpadBuffer');
+          if (numBuffer) numBuffer.innerText = `0${key}: [${targetGuild}] > BOSS...`;
+          return;
+        }
+      }
+
+      if (key >= '1' && key <= '6') {
+        executeBossCall(parseInt(key, 10));
       } else if (key === '-' || key === 'NumpadSubtract') {
         pressKey('-');
       } else if (key === '*' || key === 'NumpadMultiply') {
-        pressKey('*');
+        primeCallGeral();
       } else if (key === '+' || key === 'NumpadAdd') {
         toggleMap();
       } else if (key === '/' || key === 'NumpadDivide') {
@@ -756,8 +790,14 @@
       } else if (key === 'Escape' || key === 'Backspace') {
         selectedGuildForDispatch = null;
         isCallGeralPrimed = false;
+        isGuildSelectArmed = false;
         clearBuffer();
         renderGuildList();
+        const banner = document.getElementById('callGeralBanner');
+        if (!callGeral) {
+          banner.classList.add('hidden');
+          banner.classList.remove('flex');
+        }
       }
     });
 
@@ -896,8 +936,8 @@
           `;
         }
 
-        const hotkeyChar = Object.keys(GUILD_HOTKEYS).find(k => GUILD_HOTKEYS[k] === guild.id);
-        const hotkeyBadge = hotkeyChar ? `<kbd class="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-[10px] text-cyan-400 font-bold font-mono shadow">${hotkeyChar.toUpperCase()}</kbd>` : '';
+        const numKey = Object.keys(GUILD_NUM_MAP).find(k => GUILD_NUM_MAP[k] === guild.id);
+        const hotkeyBadge = numKey ? `<kbd class="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-[10px] text-amber-400 font-bold font-mono shadow">0${numKey}</kbd>` : '';
 
         row.innerHTML = `
           <div class="flex items-center gap-2">
