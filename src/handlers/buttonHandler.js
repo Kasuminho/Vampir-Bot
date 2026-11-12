@@ -56,7 +56,7 @@ async function handleButton(interaction, refreshServerStats) {
     if (!res.success) {
       return interaction.reply({ content: res.message, ephemeral: true });
     }
-    return interaction.reply({ embeds: res.embeds, components: res.components, ephemeral: true });
+    return interaction.reply({ embeds: res.embeds, components: res.components, flags: MessageFlags.Ephemeral });
   }
 
   // --- BOTÃO INICIAR CHECK-IN DE GEENA ---

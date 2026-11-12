@@ -5,6 +5,10 @@ const express = require('express');
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
+const crypto = require('crypto');
+
+// Sessões de autenticação curtas para evitar o limite de 512 caracteres dos botões do Discord
+const activeSessions = new Map();
 const {
   ActionRowBuilder,
   ButtonBuilder,
@@ -141,13 +145,12 @@ function createAuthResponse(member) {
     };
   }
 
-  // Gera Token JWT (válido por 8 horas)
+  // Gera Token JWT (válido por 8 horas) sem campos pesados desnecessários
   const token = jwt.sign(
     {
       serverUrl: activeUrl,
       userId: member.id,
       username: member.displayName || member.user.username,
-      avatar: member.user.displayAvatarURL(),
       guildId: perm.userGuild ? perm.userGuild.tag : null,
       guildName: perm.userGuild ? perm.userGuild.name : 'Aliança',
       canCallGuild: perm.canCallGuild,
@@ -157,7 +160,22 @@ function createAuthResponse(member) {
     { expiresIn: '8h' }
   );
 
-  const fullUrl = `${activeUrl}/?token=${token}`;
+  // Registra sessão curta para URL leve no botão (máx 512 chars no Discord)
+  const sessionId = crypto.randomBytes(8).toString('hex');
+  activeSessions.set(sessionId, {
+    token,
+    expiresAt: Date.now() + 8 * 3600 * 1000
+  });
+
+  // Limpa sessões antigas
+  if (activeSessions.size > 500) {
+    const now = Date.now();
+    for (const [id, sess] of activeSessions.entries()) {
+      if (sess.expiresAt <= now) activeSessions.delete(id);
+    }
+  }
+
+  const shortUrl = `${activeUrl}/?s=${sessionId}`;
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -168,7 +186,7 @@ function createAuthResponse(member) {
     new ButtonBuilder()
       .setLabel('🚀 Abrir Overlay no Navegador')
       .setStyle(ButtonStyle.Link)
-      .setURL(fullUrl)
+      .setURL(shortUrl)
       .setEmoji('🌐')
   );
 
@@ -176,14 +194,11 @@ function createAuthResponse(member) {
     .setTitle('⚔️ Acesso Autorizado - Overlay Tático da Aliança')
     .setDescription(
       `Olá **${member.displayName}**!\nSeu acesso seguro foi gerado e é válido por **8 horas**.\n\n` +
-      `🔗 **Link Completo (Navegador ou App Windows):**\n` +
-      `\`\`\`text\n${fullUrl}\n\`\`\`\n` +
-      `🔑 **Token de Acesso:**\n` +
+      `🌐 **Link de Acesso Direto (Navegador):**\n` +
+      `${shortUrl}\n\n` +
+      `🔑 **Token de Acesso (para o App Windows):**\n` +
       `\`\`\`text\n${token}\n\`\`\`\n` +
-      `💡 **Como conectar no App Windows (.exe):**\n` +
-      `1. Abra o \`VampirOverlay.exe\` no seu PC.\n` +
-      `2. Se ele não conectar direto, clique no status **🔴 Desconectado** ou na engrenagem ⚙️.\n` +
-      `3. Cole o **Link Completo** OU o **Token** acima e clique em **Conectar Agora**!`
+      `💡 **No App Windows (.exe):** Abra o app, clique no status **🔴 Desconectado** ou na engrenagem ⚙️ e cole o Token ou o Link acima para conectar!`
     )
     .addFields(
       { name: '🏰 Sua Legião', value: perm.userGuild ? `[${perm.userGuild.tag}] ${perm.userGuild.name}` : 'Membro da Coalizão', inline: true },
@@ -239,6 +254,26 @@ function startOverlayService(client) {
 
   app.use(cors());
   app.use(express.json());
+
+  // Redireciona links de sessão curta diretamente para o overlay com token completo
+  app.get('/', (req, res, next) => {
+    const s = req.query.s || req.query.session;
+    if (s && activeSessions.has(s)) {
+      const sess = activeSessions.get(s);
+      if (sess.expiresAt > Date.now()) {
+        return res.redirect(`/?token=${sess.token}`);
+      }
+    }
+    next();
+  });
+
+  app.get('/api/session/:id', (req, res) => {
+    const sess = activeSessions.get(req.params.id);
+    if (!sess || sess.expiresAt < Date.now()) {
+      return res.status(404).json({ error: 'Sessão expirada ou não encontrada' });
+    }
+    res.json({ token: sess.token });
+  });
 
   // Serve os arquivos do overlay (HTML, imagens do mapa)
   const publicPath = path.join(__dirname, '..', '..', 'public');

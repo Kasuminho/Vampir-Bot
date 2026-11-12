@@ -341,14 +341,15 @@
       if (!input) return null;
       input = input.trim();
 
-      // Caso 1: Colou a URL completa (ex: https://xxx.trycloudflare.com/?token=ey...)
+      // Caso 1: Colou URL (com token ou sessão curta ?s=)
       if (input.startsWith('http://') || input.startsWith('https://') || input.startsWith('vampir://')) {
         try {
           const cleanUrl = input.replace('vampir://', 'https://');
           const parsed = new URL(cleanUrl);
           const token = parsed.searchParams.get('token');
+          const s = parsed.searchParams.get('s') || parsed.searchParams.get('session');
           const serverUrl = parsed.origin;
-          return { serverUrl, token: token || '' };
+          return { serverUrl, token: token || '', sessionId: s || null };
         } catch (e) {}
       }
 
@@ -886,6 +887,26 @@
         if (parsed) {
           if (parsed.serverUrl) serverUrl = parsed.serverUrl;
           if (parsed.token) token = parsed.token;
+
+          if (parsed.sessionId && !token) {
+            updateConnectionStatus('connecting');
+            fetch(`${serverUrl}/api/session/${parsed.sessionId}`)
+              .then(r => r.json())
+              .then(data => {
+                if (data && data.token) {
+                  localStorage.setItem('vampir_server_url', serverUrl);
+                  localStorage.setItem('vampir_token', data.token);
+                  closeSettings();
+                  connectSocket(serverUrl, data.token);
+                } else {
+                  alert('Sessão expirada. Por favor, gere um novo comando /overlay no Discord.');
+                }
+              })
+              .catch(err => {
+                alert('Erro ao validar sessão com o servidor: ' + err.message);
+              });
+            return;
+          }
         }
       }
 
@@ -895,7 +916,7 @@
       }
 
       if (!serverUrl || !token) {
-        alert('Por favor, cole o Link Completo do Overlay ou o seu Token recebido no Discord (/overlay)!');
+        alert('Por favor, cole o Link do Overlay ou o seu Token recebido no Discord (/overlay)!');
         return;
       }
 
