@@ -232,6 +232,16 @@
       }
     };
 
+        const GUILD_HOTKEYS = {
+      'q': 'NOM',
+      'w': 'NGF',
+      'e': 'AFT',
+      'r': 'KTB',
+      't': 'OLP',
+      'y': 'CHP',
+      'u': 'FSN',
+      'i': 'DIN'
+    };
     const GUILDS = {
       AFT: { id: "AFT", name: "[AFT] Aftermath", color: "#9b59b6" },
       KTB: { id: "KTB", name: "[KTB] Kontrabandz", color: "#3498db" },
@@ -310,16 +320,24 @@
 
     // --- SOCKET.IO CLIENT CONNECTION ---
     const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('token');
+    let token = urlParams.get('token');
+
+    if (token) {
+      localStorage.setItem('vampir_web_token', token);
+    } else {
+      token = localStorage.getItem('vampir_web_token');
+    }
 
     if (!token) {
       document.body.innerHTML = `
         <div class="min-h-screen flex items-center justify-center p-5 text-center font-mono">
           <div class="bg-red-950/80 border-2 border-red-500 rounded-2xl p-8 max-w-md shadow-2xl backdrop-blur-md">
             <div class="text-4xl mb-3">⛔</div>
-            <h2 class="text-xl font-black text-white uppercase mb-2">Acesso Negado</h2>
-            <p class="text-xs text-red-300 mb-4">Você precisa de um token de autorização do Bot do Discord da Aliança para entrar.</p>
-            <p class="text-xs text-slate-400">Vá no Discord da Aliança e digite <strong>/overlay</strong> ou clique no botão do canal.</p>
+            <h2 class="text-xl font-black text-white uppercase mb-2">Acesso Necessário</h2>
+            <p class="text-xs text-red-300 mb-4">Você precisa do link de acesso gerado pelo Bot do Discord para entrar.</p>
+            <p class="text-xs text-slate-300 bg-black/50 p-2.5 rounded-lg border border-red-900/60 mb-2">
+              No Discord, digite <code class="text-cyan-400 font-bold">/overlay</code> e clique no botão de acesso.
+            </p>
           </div>
         </div>
       `;
@@ -564,6 +582,35 @@
       }
     }
 
+    function primeCallGeral() {
+      if (!currentUser || !currentUser.canCallGeneral) {
+        logEvent('⚠️ Apenas o Comandante de Guerra pode usar Call Geral (*)');
+        playTone(200, 0.2, 'sawtooth');
+        return;
+      }
+      isCallGeralPrimed = !isCallGeralPrimed;
+      if (isCallGeralPrimed) {
+        selectedGuildForDispatch = null;
+        playAlertSiren();
+        logEvent('🚨 MODO ALL-IN ARMADO! Digite 1 a 6 ou clique no Boss.');
+        const banner = document.getElementById('callGeralBanner');
+        const text = document.getElementById('callGeralText');
+        banner.classList.remove('hidden');
+        banner.classList.add('flex');
+        text.innerHTML = '🚨 <strong>MODO ALL-IN ARMADO:</strong> DIGITE O BOSS (1 A 6) OU CLIQUE NO MAPA';
+        const numBuffer = document.getElementById('numpadBuffer');
+        if (numBuffer) numBuffer.innerText = 'ALL-IN > BOSS...';
+      } else {
+        const banner = document.getElementById('callGeralBanner');
+        if (!callGeral) {
+          banner.classList.add('hidden');
+          banner.classList.remove('flex');
+        }
+        const numBuffer = document.getElementById('numpadBuffer');
+        if (numBuffer) numBuffer.innerText = '---';
+      }
+    }
+
     // --- CALL EXECUTION ---
     function executeBossCall(bossId) {
       if (bossId >= 4 && currentMapId === 1) {
@@ -575,23 +622,27 @@
       const boss = bosses.find(b => b.id === bossId);
       if (!boss) return;
 
-      // Se o modo ALL-IN (*) estiver armado:
+      // 1. Se o modo ALL-IN (*) estiver armado:
       if (isCallGeralPrimed) {
         isCallGeralPrimed = false;
-        clearBuffer();
         if (socket && currentUser && currentUser.canCallGeneral) {
           socket.emit('trigger_call_geral', { bossId: boss.id, bossName: boss.name, mapId: currentMapId });
+          logEvent(`🚨 ALL-IN DISPARADO PARA O BOSS ${boss.id} (${boss.name})!`);
         }
+        clearBuffer();
         return;
       }
 
-      // Alocar guilda selecionada ou a própria guilda
+      // 2. Alocar guilda selecionada (Q-I) ou a própria guilda
       const guildToAssign = selectedGuildForDispatch || (currentUser ? currentUser.guildId : 'NOM');
       if (socket && currentUser) {
         socket.emit('set_guild_call', { guildId: guildToAssign, bossId: boss.id, mapId: currentMapId });
         playCallSound();
+        logEvent(`🎯 [${guildToAssign}] direcionada para Boss ${boss.id} (${boss.name})`);
         selectedGuildForDispatch = null;
         clearBuffer();
+        if (typeof renderGuildList === 'function') renderGuildList();
+        if (typeof renderDispatchList === 'function') renderDispatchList();
       }
     }
 
@@ -625,15 +676,7 @@
       }
 
       if (char === '*') {
-        if (!currentUser || !currentUser.canCallGeneral) {
-          logEvent('⚠️ Apenas o Comandante de Guerra pode usar Call Geral (*)');
-          playTone(200, 0.2, 'sawtooth');
-          return;
-        }
-        isCallGeralPrimed = true;
-        inputBuffer = '🚨 ALL-IN: CLIQUE NO BOSS';
-        updateBuffer();
-        playAlertSiren();
+        primeCallGeral();
         return;
       }
 
@@ -690,6 +733,16 @@
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
       const key = e.key;
+      const keyLower = key.toLowerCase();
+
+      // Atalhos de seleção de guilda (Q, W, E, R, T, Y, U, I)
+      if (GUILD_HOTKEYS[keyLower]) {
+        if (currentUser && (currentUser.canCallGeneral || currentUser.canCallGuild)) {
+          selectGuildForDispatch(GUILD_HOTKEYS[keyLower]);
+          return;
+        }
+      }
+
       if (key >= '0' && key <= '9') {
         pressKey(key);
       } else if (key === '-' || key === 'NumpadSubtract') {
@@ -701,7 +754,10 @@
       } else if (key === '/' || key === 'NumpadDivide') {
         toggleCombatMode();
       } else if (key === 'Escape' || key === 'Backspace') {
+        selectedGuildForDispatch = null;
+        isCallGeralPrimed = false;
         clearBuffer();
+        renderGuildList();
       }
     });
 
@@ -748,13 +804,34 @@
             node.style.backgroundColor = `${firstGuild.color}25`;
           }
 
-          badgeBadges = assignedGuildKeys.map(k => {
-            const g = GUILDS[k];
-            const isPvp = combatModes[k] === 'PVP';
-            return `<span class="px-1.5 py-0.5 rounded text-[9px] font-black uppercase text-white shadow-md flex items-center gap-1" style="background-color:${g ? g.color : '#888'}">
-              ${isPvp ? '⚔️' : '🎯'} ${k}
-            </span>`;
-          }).join('');
+          if (assignedGuildKeys.length >= 5) {
+            const isAllPvp = assignedGuildKeys.every(k => combatModes[k] === 'PVP');
+            badgeBadges = `
+              <div class="flex flex-col items-center">
+                <div class="px-2 py-0.5 rounded-lg bg-gradient-to-r from-red-600 via-amber-500 to-red-600 text-black font-black text-[9px] tracking-wider uppercase shadow-xl animate-pulse flex items-center gap-1 border border-amber-300">
+                  <span>${isAllPvp ? '⚔️' : '🔥'} ALL-IN (${assignedGuildKeys.length}G)</span>
+                </div>
+                <div class="flex flex-wrap items-center justify-center gap-0.5 max-w-[130px] mt-0.5">
+                  ${assignedGuildKeys.map(k => {
+                    const g = GUILDS[k];
+                    return `<span class="px-1 py-0.2 rounded text-[8px] font-black uppercase text-white shadow" style="background-color:${g ? g.color : '#888'}">${k}</span>`;
+                  }).join('')}
+                </div>
+              </div>
+            `;
+          } else {
+            badgeBadges = `
+              <div class="flex flex-wrap items-center justify-center gap-0.5 max-w-[130px]">
+                ${assignedGuildKeys.map(k => {
+                  const g = GUILDS[k];
+                  const isPvp = combatModes[k] === 'PVP';
+                  return `<span class="px-1.5 py-0.5 rounded text-[9px] font-black uppercase text-white shadow-md flex items-center gap-0.5" style="background-color:${g ? g.color : '#888'}">
+                    ${isPvp ? '⚔️' : '🎯'} ${k}
+                  </span>`;
+                }).join('')}
+              </div>
+            `;
+          }
         }
 
         let timerText = '';
@@ -767,7 +844,7 @@
 
         node.innerHTML = `
           <div class="flex flex-col items-center group" onclick="event.stopPropagation(); executeBossCall(${boss.id});">
-            <div class="flex items-center gap-1 mb-1">
+            <div class="flex flex-col items-center mb-1">
               ${badgeBadges}
             </div>
 
@@ -819,8 +896,12 @@
           `;
         }
 
+        const hotkeyChar = Object.keys(GUILD_HOTKEYS).find(k => GUILD_HOTKEYS[k] === guild.id);
+        const hotkeyBadge = hotkeyChar ? `<kbd class="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-[10px] text-cyan-400 font-bold font-mono shadow">${hotkeyChar.toUpperCase()}</kbd>` : '';
+
         row.innerHTML = `
           <div class="flex items-center gap-2">
+            ${hotkeyBadge}
             <span class="w-2.5 h-2.5 rounded-full shadow-sm" style="background-color: ${guild.color}"></span>
             <span class="font-bold text-slate-300 text-[11px]">${guild.name}</span>
           </div>

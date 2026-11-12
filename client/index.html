@@ -231,6 +231,16 @@
       }
     };
 
+        const GUILD_HOTKEYS = {
+      'q': 'NOM',
+      'w': 'NGF',
+      'e': 'AFT',
+      'r': 'KTB',
+      't': 'OLP',
+      'y': 'CHP',
+      'u': 'FSN',
+      'i': 'DIN'
+    };
     const GUILDS = {
       AFT: { id: "AFT", name: "[AFT] Aftermath", color: "#9b59b6" },
       KTB: { id: "KTB", name: "[KTB] Kontrabandz", color: "#3498db" },
@@ -622,6 +632,28 @@
       }
     }
 
+    function primeCallGeral() {
+      if (!currentUser || !currentUser.canCallGeneral) {
+        playTone(200, 0.2, 'sawtooth');
+        return;
+      }
+      isCallGeralPrimed = !isCallGeralPrimed;
+      const banner = document.getElementById('callGeralBanner');
+      const text = document.getElementById('callGeralText');
+      if (isCallGeralPrimed) {
+        selectedGuildForDispatch = null;
+        playAlertSiren();
+        banner.classList.remove('hidden');
+        banner.classList.add('flex');
+        text.innerHTML = '🚨 <strong>MODO ALL-IN ARMADO:</strong> DIGITE O BOSS (1 A 6) OU CLIQUE NO MAPA';
+      } else {
+        if (!callGeral) {
+          banner.classList.add('hidden');
+          banner.classList.remove('flex');
+        }
+      }
+    }
+
     // --- CALL EXECUTION ---
     function executeBossCall(bossId) {
       if (bossId >= 4 && currentMapId === 1) {
@@ -645,6 +677,7 @@
         socket.emit('set_guild_call', { guildId: guildToAssign, bossId: boss.id, mapId: currentMapId });
         playCallSound();
         selectedGuildForDispatch = null;
+        renderDispatchList();
       }
     }
 
@@ -653,6 +686,16 @@
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
       const key = e.key;
+      const keyLower = key.toLowerCase();
+
+      // Atalhos de seleção de guilda (Q, W, E, R, T, Y, U, I)
+      if (GUILD_HOTKEYS[keyLower]) {
+        if (currentUser && (currentUser.canCallGeneral || currentUser.canCallGuild)) {
+          selectGuildForDispatch(GUILD_HOTKEYS[keyLower]);
+          return;
+        }
+      }
+
       if (key >= '0' && key <= '9') {
         executeBossCall(parseInt(key, 10));
       } else if (key === '-' || key === 'NumpadSubtract') {
@@ -663,15 +706,20 @@
           }
         }
       } else if (key === '*' || key === 'NumpadMultiply') {
-        if (socket && currentUser && currentUser.canCallGeneral) {
-          const currentTarget = assignments[currentUser.guildId || 'NOM'] || 1;
-          const boss = MAP_DATA[currentMapId].bosses.find(b => b.id === currentTarget);
-          socket.emit('trigger_call_geral', { bossId: currentTarget, bossName: boss ? boss.name : 'Alvo' });
-        }
+        primeCallGeral();
       } else if (key === '+' || key === 'NumpadAdd') {
         toggleMap();
       } else if (key === '/' || key === 'NumpadDivide') {
         toggleCombatMode();
+      } else if (key === 'Escape' || key === 'Backspace') {
+        selectedGuildForDispatch = null;
+        isCallGeralPrimed = false;
+        renderDispatchList();
+        const banner = document.getElementById('callGeralBanner');
+        if (!callGeral && banner) {
+          banner.classList.add('hidden');
+          banner.classList.remove('flex');
+        }
       }
     });
 
@@ -699,11 +747,7 @@
       });
 
       ipc.on('hotkey_call_geral', () => {
-        if (socket && currentUser && currentUser.canCallGeneral) {
-          const currentTarget = assignments[currentUser.guildId || 'NOM'] || 1;
-          const boss = MAP_DATA[currentMapId].bosses.find(b => b.id === currentTarget);
-          socket.emit('trigger_call_geral', { bossId: currentTarget, bossName: boss ? boss.name : 'Alvo' });
-        }
+        primeCallGeral();
       });
 
       ipc.on('click_through_changed', (event, enabled) => {
@@ -770,13 +814,34 @@
             node.style.backgroundColor = `${firstGuild.color}25`;
           }
 
-          badgeBadges = assignedGuildKeys.map(k => {
-            const g = GUILDS[k];
-            const isPvp = combatModes[k] === 'PVP';
-            return `<span class="px-1.5 py-0.5 rounded text-[9px] font-black uppercase text-white shadow-md flex items-center gap-1" style="background-color:${g ? g.color : '#888'}">
-              ${isPvp ? '⚔️' : '🎯'} ${k}
-            </span>`;
-          }).join('');
+          if (assignedGuildKeys.length >= 5) {
+            const isAllPvp = assignedGuildKeys.every(k => combatModes[k] === 'PVP');
+            badgeBadges = `
+              <div class="flex flex-col items-center">
+                <div class="px-2 py-0.5 rounded-lg bg-gradient-to-r from-red-600 via-amber-500 to-red-600 text-black font-black text-[9px] tracking-wider uppercase shadow-xl animate-pulse flex items-center gap-1 border border-amber-300">
+                  <span>${isAllPvp ? '⚔️' : '🔥'} ALL-IN (${assignedGuildKeys.length}G)</span>
+                </div>
+                <div class="flex flex-wrap items-center justify-center gap-0.5 max-w-[130px] mt-0.5">
+                  ${assignedGuildKeys.map(k => {
+                    const g = GUILDS[k];
+                    return `<span class="px-1 py-0.2 rounded text-[8px] font-black uppercase text-white shadow" style="background-color:${g ? g.color : '#888'}">${k}</span>`;
+                  }).join('')}
+                </div>
+              </div>
+            `;
+          } else {
+            badgeBadges = `
+              <div class="flex flex-wrap items-center justify-center gap-0.5 max-w-[130px]">
+                ${assignedGuildKeys.map(k => {
+                  const g = GUILDS[k];
+                  const isPvp = combatModes[k] === 'PVP';
+                  return `<span class="px-1.5 py-0.5 rounded text-[9px] font-black uppercase text-white shadow-md flex items-center gap-0.5" style="background-color:${g ? g.color : '#888'}">
+                    ${isPvp ? '⚔️' : '🎯'} ${k}
+                  </span>`;
+                }).join('')}
+              </div>
+            `;
+          }
         }
 
         let timerText = '';
@@ -789,7 +854,7 @@
 
         node.innerHTML = `
           <div class="flex flex-col items-center group" onclick="event.stopPropagation(); executeBossCall(${boss.id});">
-            <div class="flex items-center gap-1 mb-1">
+            <div class="flex flex-col items-center mb-1">
               ${badgeBadges}
             </div>
 
@@ -841,8 +906,12 @@
           `;
         }
 
+        const hotkeyChar = Object.keys(GUILD_HOTKEYS).find(k => GUILD_HOTKEYS[k] === guild.id);
+        const hotkeyBadge = hotkeyChar ? `<kbd class="px-1 py-0.2 bg-slate-800 border border-slate-700 rounded text-[9px] text-cyan-400 font-bold font-mono">${hotkeyChar.toUpperCase()}</kbd>` : '';
+
         row.innerHTML = `
           <div class="flex items-center gap-1.5">
+            ${hotkeyBadge}
             <span class="w-2 h-2 rounded-full" style="background-color: ${guild.color}"></span>
             <span class="font-bold text-slate-300">${guild.id}</span>
           </div>
