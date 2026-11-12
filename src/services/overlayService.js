@@ -144,6 +144,7 @@ function createAuthResponse(member) {
   // Gera Token JWT (válido por 8 horas)
   const token = jwt.sign(
     {
+      serverUrl: activeUrl,
       userId: member.id,
       username: member.displayName || member.user.username,
       avatar: member.user.displayAvatarURL(),
@@ -175,11 +176,14 @@ function createAuthResponse(member) {
     .setTitle('⚔️ Acesso Autorizado - Overlay Tático da Aliança')
     .setDescription(
       `Olá **${member.displayName}**!\nSeu acesso seguro foi gerado e é válido por **8 horas**.\n\n` +
-      `**💻 Como usar o App Executável no Windows:**\n` +
-      `1. Baixe o executável no botão abaixo (não precisa instalar, é só abrir).\n` +
-      `2. No App, clique na engrenagem ⚙️ e cole seu Token:\n` +
+      `🔗 **Link Completo (Navegador ou App Windows):**\n` +
+      `\`\`\`text\n${fullUrl}\n\`\`\`\n` +
+      `🔑 **Token de Acesso:**\n` +
       `\`\`\`text\n${token}\n\`\`\`\n` +
-      `*Ou clique em "Abrir Overlay no Navegador" para usar direto sem baixar nada.*`
+      `💡 **Como conectar no App Windows (.exe):**\n` +
+      `1. Abra o \`VampirOverlay.exe\` no seu PC.\n` +
+      `2. Se ele não conectar direto, clique no status **🔴 Desconectado** ou na engrenagem ⚙️.\n` +
+      `3. Cole o **Link Completo** OU o **Token** acima e clique em **Conectar Agora**!`
     )
     .addFields(
       { name: '🏰 Sua Legião', value: perm.userGuild ? `[${perm.userGuild.tag}] ${perm.userGuild.name}` : 'Membro da Coalizão', inline: true },

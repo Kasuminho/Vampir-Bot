@@ -46,8 +46,9 @@
     <!-- TOP HEADER / DRAG BAR -->
     <div class="titlebar-drag flex items-center justify-between px-3 py-2 bg-slate-900/90 border-b border-slate-800 text-xs font-mono">
       <div class="flex items-center gap-2">
-        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+        <span id="connDot" class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
         <span class="font-black tracking-wider text-white uppercase">⚔️ VAMPIR OVERLAY</span>
+        <span id="connStatusBadge" onclick="openSettings()" class="titlebar-nodrag cursor-pointer px-2 py-0.5 rounded text-[10px] font-bold bg-red-950 text-red-300 border border-red-700 hover:border-red-500" title="Clique para configurar conexão">🔴 Desconectado</span>
         <span id="clickThroughBadge" class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700">F8: Cliques Ativos</span>
       </div>
 
@@ -137,24 +138,62 @@
   </div>
 
   <!-- SETTINGS / LOGIN MODAL -->
-  <div id="settingsModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
-    <div class="bg-slate-900 border border-slate-700 rounded-2xl p-5 max-w-md w-full shadow-2xl font-mono text-xs">
-      <h3 class="text-sm font-bold text-white uppercase mb-3 flex items-center gap-2">
-        <span>⚙️ Configuração de Conexão</span>
-      </h3>
-      <div class="space-y-3 mb-4">
-        <div>
-          <label class="block text-slate-400 mb-1">URL do Servidor (VPS / Cloudflare):</label>
-          <input id="inputServerUrl" type="text" placeholder="https://xxxx.trycloudflare.com" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white">
-        </div>
-        <div>
-          <label class="block text-slate-400 mb-1">Token de Acesso (Gerado pelo /overlay):</label>
-          <textarea id="inputToken" rows="3" placeholder="Cole aqui seu token JWT..." class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white text-[11px]"></textarea>
-        </div>
+  <div id="settingsModal" class="hidden fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl p-5 max-w-lg w-full shadow-2xl font-mono text-xs">
+      <div class="flex items-center justify-between mb-3 border-b border-slate-800 pb-2">
+        <h3 class="text-sm font-bold text-white uppercase flex items-center gap-2">
+          <span>⚙️ Conexão com o Servidor de Guerra</span>
+        </h3>
+        <button onclick="closeSettings()" class="text-slate-400 hover:text-white">✖</button>
       </div>
-      <div class="flex justify-end gap-2">
-        <button onclick="closeSettings()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300">Cancelar</button>
-        <button onclick="saveAndConnect()" class="px-4 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 font-bold text-white shadow-lg">Salvar e Conectar</button>
+
+      <div class="space-y-4 mb-4">
+        <div class="bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-300 leading-relaxed text-[11px]">
+          <p class="font-bold text-amber-400 mb-1">💡 Como Conectar:</p>
+          <p>No Discord, envie o comando <code class="bg-slate-800 px-1 py-0.5 rounded text-cyan-300 font-bold">/overlay</code>. O bot responderá com o seu <strong>Link</strong> e <strong>Token</strong>. Basta copiar e colar abaixo!</p>
+        </div>
+
+        <div>
+          <label class="block text-slate-300 font-bold mb-1">Cole aqui o Link do Overlay OU o seu Token do Discord:</label>
+          <textarea id="inputUnifiedAuth" rows="3" placeholder="Cole o link https://xxxx.trycloudflare.com/?token=ey... ou apenas o token eyJhbGci..." class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-white text-[11px] focus:border-red-500 focus:outline-none"></textarea>
+          <div id="authParseFeedback" class="text-[10px] mt-1 text-slate-400"></div>
+        </div>
+
+        <!-- Opções Avançadas -->
+        <details class="text-[11px] text-slate-400">
+          <summary class="cursor-pointer hover:text-slate-300 font-bold text-slate-400">Opções Avançadas (URL e Token manuais)</summary>
+          <div class="space-y-2 mt-2 pt-2 border-t border-slate-800">
+            <div>
+              <label class="block text-slate-400 mb-0.5">Servidor WebSocket / VPS URL:</label>
+              <input id="inputServerUrl" type="text" placeholder="https://xxxx.trycloudflare.com" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white text-xs">
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-0.5">Token JWT:</label>
+              <input id="inputToken" type="text" placeholder="eyJ..." class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white text-xs">
+            </div>
+          </div>
+        </details>
+
+        <!-- Botão de Reset de Respawn (para comandantes) -->
+        <div id="commanderResetSection" class="hidden pt-2 border-t border-slate-800">
+          <div class="flex items-center justify-between bg-amber-950/30 border border-amber-900/50 rounded-xl p-2.5">
+            <div>
+              <div class="font-bold text-amber-300 text-[11px]">👑 Resetar Cronômetros de Respawn</div>
+              <div class="text-[10px] text-slate-400">Zera os timers de morte de todos os bosses caso os servidores tenham resetado.</div>
+            </div>
+            <button onclick="resetRespawns()" class="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-black font-bold text-[10px] whitespace-nowrap shadow-md">
+              Resetar Timers
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="flex justify-end gap-2 border-t border-slate-800 pt-3">
+        <button onclick="closeSettings()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300">Fechar</button>
+        <button onclick="saveAndConnect()" class="px-5 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 font-bold text-white shadow-lg flex items-center gap-1.5">
+          <span>🚀 Conectar Agora</span>
+        </button>
       </div>
     </div>
   </div>
@@ -260,16 +299,117 @@
       setTimeout(() => playTone(220, 0.2, "triangle"), 100);
     }
 
+    // --- CONNECTION & AUTH HELPERS ---
+    function updateConnectionStatus(status, detail) {
+      const dot = document.getElementById('connDot');
+      const badge = document.getElementById('connStatusBadge');
+      if (!dot || !badge) return;
+
+      if (status === 'connected') {
+        dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981]";
+        badge.className = "titlebar-nodrag cursor-pointer px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-700";
+        badge.innerText = "🟢 Online";
+        badge.title = "Conectado e sincronizado com o servidor em tempo real";
+      } else if (status === 'connecting') {
+        dot.className = "w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse";
+        badge.className = "titlebar-nodrag cursor-pointer px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-700";
+        badge.innerText = "🟡 Conectando...";
+        badge.title = "Tentando conectar ao servidor...";
+      } else {
+        dot.className = "w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse";
+        badge.className = "titlebar-nodrag cursor-pointer px-2 py-0.5 rounded text-[10px] font-bold bg-red-950 text-red-300 border border-red-700 hover:border-red-500";
+        badge.innerText = "🔴 Desconectado (Clique p/ Login)";
+        badge.title = detail || "Sem conexão com o servidor. Clique para abrir as configurações.";
+      }
+    }
+
+    function decodeJwt(token) {
+      try {
+        const base64Url = token.split('.')[1];
+        if (!base64Url) return null;
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        return JSON.parse(jsonPayload);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function parseAuthInput(input) {
+      if (!input) return null;
+      input = input.trim();
+
+      // Caso 1: Colou a URL completa (ex: https://xxx.trycloudflare.com/?token=ey...)
+      if (input.startsWith('http://') || input.startsWith('https://') || input.startsWith('vampir://')) {
+        try {
+          const cleanUrl = input.replace('vampir://', 'https://');
+          const parsed = new URL(cleanUrl);
+          const token = parsed.searchParams.get('token');
+          const serverUrl = parsed.origin;
+          return { serverUrl, token: token || '' };
+        } catch (e) {}
+      }
+
+      // Caso 2: Colou o Token JWT direto
+      if (input.includes('.') && input.split('.').length === 3) {
+        const payload = decodeJwt(input);
+        const serverUrl = (payload && payload.serverUrl) ? payload.serverUrl : null;
+        return { serverUrl, token: input, payload };
+      }
+
+      return null;
+    }
+
     // --- CONNECTION MANAGEMENT ---
     function connectSocket(serverUrl, token) {
-      if (socket) socket.disconnect();
+      updateConnectionStatus('connecting');
 
+      if (!serverUrl) {
+        serverUrl = localStorage.getItem('vampir_server_url');
+      }
+      if (!token) {
+        token = localStorage.getItem('vampir_token');
+      }
+
+      if (!serverUrl || !token) {
+        updateConnectionStatus('disconnected', 'Link ou Token ausente.');
+        openSettings();
+        return;
+      }
+
+      if (socket) {
+        socket.removeAllListeners();
+        socket.disconnect();
+      }
+
+      console.log(`Conectando em ${serverUrl}...`);
       socket = io(serverUrl, {
-        auth: { token }
+        auth: { token },
+        reconnection: true,
+        reconnectionAttempts: 15,
+        reconnectionDelay: 2000,
+        timeout: 10000
       });
 
       socket.on('connect', () => {
-        console.log('Conectado ao servidor WebSocket!');
+        console.log('✅ Conectado ao servidor WebSocket!');
+        updateConnectionStatus('connected');
+      });
+
+      socket.on('connect_error', (err) => {
+        console.warn('❌ Erro de conexão Socket:', err.message);
+        updateConnectionStatus('disconnected', `Falha ao conectar: ${err.message}`);
+      });
+
+      socket.on('disconnect', (reason) => {
+        console.warn('Desconectado do servidor:', reason);
+        updateConnectionStatus('disconnected', 'Conexão encerrada');
+      });
+
+      socket.on('error_msg', (msg) => {
+        alert(msg);
       });
 
       socket.on('init_state', (data) => {
@@ -288,6 +428,8 @@
 
         if (currentUser.canCallGeneral) {
           document.getElementById('btnClearCallGeral').classList.remove('hidden');
+          const resetSec = document.getElementById('commanderResetSection');
+          if (resetSec) resetSec.classList.remove('hidden');
         }
 
         applyMap(currentMapId);
@@ -320,7 +462,10 @@
         renderAll();
       });
 
-      socket.on('respawns_reset', () => { deadBosses = {}; renderNodes(); });
+      socket.on('respawns_reset', () => { 
+        deadBosses = {}; 
+        renderNodes(); 
+      });
 
       socket.on('boss_killed', (data) => {
         deadBosses[data.bossId] = data.respawnTime;
@@ -332,6 +477,17 @@
       socket.on('map_switched', (data) => {
         currentMapId = data.mapId;
         applyMap(currentMapId);
+        renderAll();
+      });
+
+      socket.on('state_reset', (state) => {
+        assignments = state.assignments || {};
+        callGeral = state.callGeral || null;
+        deadBosses = state.deadBosses || {};
+        if (!callGeral) {
+          const banner = document.getElementById('callGeralBanner');
+          banner.classList.add('hidden');
+        }
         renderAll();
       });
     }
@@ -561,8 +717,12 @@
       });
 
       ipc.on('auth_token_received', (event, token) => {
-        localStorage.setItem('vampir_token', token);
-        connectSocket(localStorage.getItem('vampir_server_url') || 'https://monetary-sought-arrival-professional.trycloudflare.com', token);
+        const parsed = parseAuthInput(token);
+        let serverUrl = (parsed && parsed.serverUrl) ? parsed.serverUrl : localStorage.getItem('vampir_server_url');
+        let authToken = (parsed && parsed.token) ? parsed.token : token;
+        if (serverUrl) localStorage.setItem('vampir_server_url', serverUrl);
+        if (authToken) localStorage.setItem('vampir_token', authToken);
+        connectSocket(serverUrl, authToken);
       });
     }
 
@@ -693,8 +853,22 @@
     }
 
     function openSettings() {
-      document.getElementById('inputServerUrl').value = localStorage.getItem('vampir_server_url') || '';
-      document.getElementById('inputToken').value = localStorage.getItem('vampir_token') || '';
+      const savedUrl = localStorage.getItem('vampir_server_url') || '';
+      const savedToken = localStorage.getItem('vampir_token') || '';
+
+      document.getElementById('inputServerUrl').value = savedUrl;
+      document.getElementById('inputToken').value = savedToken;
+      if (savedUrl && savedToken) {
+        document.getElementById('inputUnifiedAuth').value = `${savedUrl}/?token=${savedToken}`;
+      } else if (savedToken) {
+        document.getElementById('inputUnifiedAuth').value = savedToken;
+      }
+
+      if (currentUser && currentUser.canCallGeneral) {
+        const resetSec = document.getElementById('commanderResetSection');
+        if (resetSec) resetSec.classList.remove('hidden');
+      }
+
       document.getElementById('settingsModal').classList.remove('hidden');
     }
 
@@ -703,12 +877,47 @@
     }
 
     function saveAndConnect() {
-      const url = document.getElementById('inputServerUrl').value.trim();
-      const token = document.getElementById('inputToken').value.trim();
-      if (url) localStorage.setItem('vampir_server_url', url);
-      if (token) localStorage.setItem('vampir_token', token);
+      const unified = document.getElementById('inputUnifiedAuth').value.trim();
+      let serverUrl = document.getElementById('inputServerUrl').value.trim();
+      let token = document.getElementById('inputToken').value.trim();
+
+      if (unified) {
+        const parsed = parseAuthInput(unified);
+        if (parsed) {
+          if (parsed.serverUrl) serverUrl = parsed.serverUrl;
+          if (parsed.token) token = parsed.token;
+        }
+      }
+
+      if (!serverUrl && token) {
+        const payload = decodeJwt(token);
+        if (payload && payload.serverUrl) serverUrl = payload.serverUrl;
+      }
+
+      if (!serverUrl || !token) {
+        alert('Por favor, cole o Link Completo do Overlay ou o seu Token recebido no Discord (/overlay)!');
+        return;
+      }
+
+      localStorage.setItem('vampir_server_url', serverUrl);
+      localStorage.setItem('vampir_token', token);
       closeSettings();
-      connectSocket(url, token);
+      connectSocket(serverUrl, token);
+    }
+
+    function resetRespawns() {
+      if (socket && currentUser && currentUser.canCallGeneral) {
+        if (confirm('Tem certeza que deseja resetar os cronômetros de respawn dos bosses?')) {
+          socket.emit('reset_respawns');
+          closeSettings();
+        }
+      }
+    }
+
+    function clearCallGeral() {
+      if (socket && currentUser && currentUser.canCallGeneral) {
+        socket.emit('clear_call_geral');
+      }
     }
 
     function minimizeWindow() {
@@ -720,9 +929,24 @@
     }
 
     // Init
-    const savedUrl = localStorage.getItem('vampir_server_url') || 'https://monetary-sought-arrival-professional.trycloudflare.com';
-    const savedToken = localStorage.getItem('vampir_token') || '';
-    if (savedToken) {
+    let savedUrl = localStorage.getItem('vampir_server_url');
+    const savedToken = localStorage.getItem('vampir_token');
+
+    // Se a URL salva era o túnel antigo de teste que expirou, limpa ela
+    if (savedUrl && savedUrl.includes('monetary-sought-arrival-professional.trycloudflare.com')) {
+      savedUrl = null;
+      localStorage.removeItem('vampir_server_url');
+    }
+
+    if (!savedUrl && savedToken) {
+      const payload = decodeJwt(savedToken);
+      if (payload && payload.serverUrl) {
+        savedUrl = payload.serverUrl;
+        localStorage.setItem('vampir_server_url', savedUrl);
+      }
+    }
+
+    if (savedUrl && savedToken) {
       connectSocket(savedUrl, savedToken);
     } else {
       openSettings();

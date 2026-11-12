@@ -1,6 +1,6 @@
 {
   "name": "vampir-tactical-overlay-client",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Windows Transparent Desktop Overlay for Vampir Alliance",
   "main": "main.js",
   "scripts": {
