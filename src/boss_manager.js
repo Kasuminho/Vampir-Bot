@@ -160,7 +160,7 @@ function buildBossPanelEmbed(bossData) {
   for (const b of bossData.mapBosses) {
     const locStr = `📍 \`${b.territory} — ${b.location}\``;
 
-    // Caso 1: Boss com horário fixo diário (Larva, Clamamus, Brachium)
+    // Caso 1: Boss com horário fixo diário (Larva, Brachium, Clamamus, Deserti, Exesa, Usurpator)
     if (b.schedule && b.schedule.length > 0) {
       const sched = getFixedScheduleStatus(b.schedule);
       const scheduleStr = b.schedule.map(s => `\`${s}\``).join(' • ');
@@ -177,7 +177,7 @@ function buildBossPanelEmbed(bossData) {
           `• ⏰ Respawn previsto: <t:${ts}:t> (<t:${ts}:R>) *(Fixo diário: ${scheduleStr})*\n\n`;
       }
     } else {
-      // Caso 2: Boss manual (Deserti, Exesa, Usurpator)
+      // Caso 2: Boss manual (sem horário fixo pré-determinado)
       if (b.status === 'alive') {
         const timeInfo = b.spawnedAt ? ` *(Spawnou há ${Math.floor((Date.now() - new Date(b.spawnedAt).getTime()) / 60000)} min)*` : '';
         mapBossesText += `🟢 **[Nv. ${b.level}] ${b.name}** ➔ **VIVO NO MAPA**${timeInfo}\n` +
@@ -319,7 +319,7 @@ async function checkAndSendBossAlerts(discordClient) {
 
   // 2. Alertas de Bosses de Mapa
   for (const b of bossData.mapBosses) {
-    // Caso A: Boss com horário fixo diário (Larva, Clamamus, Brachium)
+    // Caso A: Boss com horário fixo diário (Larva, Brachium, Clamamus, Deserti, Exesa, Usurpator)
     if (b.schedule && b.schedule.length > 0) {
       const sched = getFixedScheduleStatus(b.schedule, now);
       b.alertsSent = b.alertsSent || {};
@@ -404,7 +404,7 @@ async function checkAndSendBossAlerts(discordClient) {
       }
       b.nextSpawn = sched.nextSpawn.toISOString();
     } else {
-      // Caso B: Boss manual (Deserti, Exesa, Usurpator)
+      // Caso B: Boss manual (sem horário fixo pré-determinado)
       if (b.status === 'dead' && b.nextSpawn) {
         const spawnDate = new Date(b.nextSpawn);
         const diffMs = spawnDate.getTime() - now.getTime();

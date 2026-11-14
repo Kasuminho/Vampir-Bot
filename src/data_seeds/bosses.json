@@ -462,6 +462,9 @@
       "level": 95,
       "territory": "Território de Kicel",
       "location": "Dunas de Alabastro",
+      "schedule": [
+        "22:00"
+      ],
       "status": "dead",
       "nextSpawn": null,
       "alertsSent": {}
@@ -472,6 +475,9 @@
       "level": 107,
       "territory": "Território de Kicel",
       "location": "Ruínas Esquecidas",
+      "schedule": [
+        "14:00"
+      ],
       "status": "dead",
       "nextSpawn": null,
       "alertsSent": {}
