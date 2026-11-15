@@ -1,4 +1,6 @@
-const { Colors, EmbedBuilder, ChannelType, PermissionFlagsBits, MessageFlags } = require('discord.js');
+const { Colors, EmbedBuilder, ChannelType, PermissionFlagsBits, MessageFlags, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const crypto = require('crypto');
+const banRepo = require('../database/ban_repo');
 const {
   getServerConfig,
   getGuilds,
@@ -1977,6 +1979,131 @@ async function handleCommand(interaction, refreshServerStats) {
       }
       return interaction.editReply(`🔓 **Modo Combate Desativado com sucesso!**\nOs canais comunitários foram reabertos para toda a comunidade.\nMotivo: \`${motivo}\``);
     }
+  }
+
+  // --- /solicitar-ban ---
+  if (commandName === 'solicitar-ban') {
+    const isMasterAdmin = interaction.user.id === '273600843251712020' ||
+      interaction.user.id === guild.ownerId ||
+      interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+    const isStaff = isMasterAdmin || (config?.roles?.staff && member.roles.cache.has(config.roles.staff));
+    const isLider = config?.roles?.lider && member.roles.cache.has(config.roles.lider);
+    const isOficial = config?.roles?.oficial && member.roles.cache.has(config.roles.oficial);
+
+    if (!isStaff && !isLider && !isOficial) {
+      return interaction.reply({
+        content: '❌ **Permissão Negada:** Apenas a Staff e a Liderança das guildas podem solicitar banimentos.',
+        ephemeral: true
+      });
+    }
+
+    const targetUser = interaction.options.getUser('usuario');
+    const motivo = interaction.options.getString('motivo');
+    const evidencias = interaction.options.getString('evidencias');
+
+    if (!targetUser) {
+      return interaction.reply({
+        content: '❌ Usuário inválido ou não encontrado.',
+        ephemeral: true
+      });
+    }
+
+    if (targetUser.id === interaction.user.id) {
+      return interaction.reply({
+        content: '❌ Você não pode solicitar o banimento de si mesmo.',
+        ephemeral: true
+      });
+    }
+
+    if (targetUser.id === interaction.client.user.id) {
+      return interaction.reply({
+        content: '❌ Você não pode solicitar o banimento do próprio bot.',
+        ephemeral: true
+      });
+    }
+
+    if (targetUser.id === '273600843251712020' || targetUser.id === guild.ownerId) {
+      return interaction.reply({
+        content: '❌ Você não pode solicitar o banimento do Administrador Geral / Dono da Coalizão.',
+        ephemeral: true
+      });
+    }
+
+    await interaction.deferReply({ ephemeral: true });
+
+    const chatLideresChannelId = config?.channels?.chatLideres || '1565129743748309002';
+    const chLideres = await guild.channels.fetch(chatLideresChannelId).catch(() => null);
+
+    if (!chLideres) {
+      return interaction.editReply(`❌ Canal de liderança não encontrado no servidor (\`${chatLideresChannelId}\`). Contate o administrador.`);
+    }
+
+    const requestId = crypto.randomUUID();
+
+    // Registra a solicitação no banco
+    await banRepo.createBanRequest({
+      id: requestId,
+      targetUserId: targetUser.id,
+      targetUserTag: targetUser.tag || targetUser.username,
+      requestedById: interaction.user.id,
+      requestedByTag: interaction.user.tag || interaction.user.username,
+      reason: motivo,
+      evidence: evidencias,
+      status: 'pending',
+      channelId: chLideres.id
+    });
+
+    const banEmbed = new EmbedBuilder()
+      .setTitle('⚖️ SOLICITAÇÃO DE BANIMENTO & EXPURGO DA COALIZÃO')
+      .setDescription(
+        `Uma nova solicitação de banimento foi aberta para deliberação das Lideranças e Staff da Coalizão Vampir.\n` +
+        `Para efetivação da punição máxima, é necessária a validação da liderança.`
+      )
+      .addFields(
+        { name: '👤 Alvo / Infrator', value: `<@${targetUser.id}> (\`${targetUser.tag || targetUser.username}\` | \`${targetUser.id}\`)`, inline: false },
+        { name: '🛡️ Solicitado por', value: `<@${interaction.user.id}> (\`${interaction.user.tag || interaction.user.username}\`)`, inline: true },
+        { name: '⏳ Status', value: '`🟡 AGUARDANDO DELIBERAÇÃO`', inline: true },
+        { name: '📝 Motivo Declarado', value: `\`\`\`${motivo}\`\`\``, inline: false }
+      )
+      .setColor(Colors.DarkRed)
+      .setThumbnail(targetUser.displayAvatarURL({ dynamic: true }) || null)
+      .setFooter({ text: `ID: ${requestId} • Decisão Soberana da Liderança` })
+      .setTimestamp();
+
+    if (evidencias && evidencias.trim().length > 0) {
+      banEmbed.addFields({
+        name: '🔗 Evidências / Observações',
+        value: evidencias.length > 1000 ? evidencias.slice(0, 997) + '...' : evidencias,
+        inline: false
+      });
+    }
+
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`btn_confirm_ban_${requestId}`)
+        .setLabel('Confirmar Banimento')
+        .setEmoji('🔨')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId(`btn_cancel_ban_${requestId}`)
+        .setLabel('Recusar / Cancelar')
+        .setEmoji('❌')
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+    const sentMessage = await chLideres.send({
+      content: `📢 **CONVOCAÇÃO DE LIDERANÇAS:** Deliberação de banimento solicitada por <@${interaction.user.id}>.`,
+      embeds: [banEmbed],
+      components: [row]
+    });
+
+    await banRepo.updateBanRequest(requestId, {
+      messageId: sentMessage.id
+    });
+
+    return interaction.editReply({
+      content: `✅ Solicitação de banimento contra <@${targetUser.id}> enviada com sucesso para o canal de lideranças (<#${chLideres.id}>).`
+    });
   }
 }
 

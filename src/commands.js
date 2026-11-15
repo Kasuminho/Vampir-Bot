@@ -67,6 +67,25 @@ const commands = [
     ),
 
   new SlashCommandBuilder()
+    .setName('solicitar-ban')
+    .setDescription('Solicita o banimento de um membro com votação e confirmação no chat dos líderes')
+    .addUserOption(option =>
+      option.setName('usuario')
+        .setDescription('Membro a ser banido do Discord e da Coalizão')
+        .setRequired(true)
+    )
+    .addStringOption(option =>
+      option.setName('motivo')
+        .setDescription('Motivo do banimento')
+        .setRequired(true)
+    )
+    .addStringOption(option =>
+      option.setName('evidencias')
+        .setDescription('Links de prints, provas ou observações adicionais')
+        .setRequired(false)
+    ),
+
+  new SlashCommandBuilder()
     .setName('painel-recrutamento')
     .setDescription('Atualiza ou publica o painel de recrutamento com todas as guilds cadastradas')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),

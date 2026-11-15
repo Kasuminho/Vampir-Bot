@@ -136,6 +136,27 @@ CREATE TABLE IF NOT EXISTS server_config (
   config_json JSONB NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- 8. Solicitações de Banimento e Expurgo da Coalizão
+CREATE TABLE IF NOT EXISTS ban_requests (
+  id VARCHAR(64) PRIMARY KEY,
+  target_user_id VARCHAR(64) NOT NULL,
+  target_user_tag VARCHAR(128),
+  requested_by_id VARCHAR(64) NOT NULL,
+  requested_by_tag VARCHAR(128),
+  reason TEXT NOT NULL,
+  evidence TEXT,
+  status VARCHAR(32) DEFAULT 'pending',
+  confirmed_by_id VARCHAR(64),
+  confirmed_by_tag VARCHAR(128),
+  message_id VARCHAR(64),
+  channel_id VARCHAR(64),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  resolved_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_ban_req_status ON ban_requests(status);
+CREATE INDEX IF NOT EXISTS idx_ban_req_target ON ban_requests(target_user_id);
 `;
 
 module.exports = { SCHEMA_SQL };

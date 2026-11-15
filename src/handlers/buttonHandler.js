@@ -28,6 +28,7 @@ const {
   getMemberGuild
 } = require('../attendance_manager');
 const { createAuthResponse } = require('../services/overlayService');
+const banRepo = require('../database/ban_repo');
 
 /**
  * Roteia e trata todas as interações de botão (interaction.isButton())
@@ -702,6 +703,241 @@ async function handleButton(interaction, refreshServerStats) {
         });
       }
     } catch {}
+
+    return;
+  }
+
+  // --- CONFIRMAR BANIMENTO ---
+  if (customId.startsWith('btn_confirm_ban_')) {
+    const requestId = customId.replace('btn_confirm_ban_', '');
+    const banReq = await banRepo.findBanRequestById(requestId);
+
+    if (!banReq) {
+      return interaction.reply({
+        content: '❌ Solicitação de banimento não encontrada no sistema.',
+        ephemeral: true
+      });
+    }
+
+    if (banReq.status !== 'pending') {
+      return interaction.reply({
+        content: `⚠️ Esta solicitação já foi finalizada com o status **${banReq.status.toUpperCase()}**.`,
+        ephemeral: true
+      });
+    }
+
+    const isMasterAdmin = interaction.user.id === '273600843251712020' ||
+      interaction.user.id === guild.ownerId ||
+      interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+    const isStaff = isMasterAdmin || (config?.roles?.staff && interaction.member.roles.cache.has(config.roles.staff));
+    const isLider = config?.roles?.lider && interaction.member.roles.cache.has(config.roles.lider);
+    const isOficial = config?.roles?.oficial && interaction.member.roles.cache.has(config.roles.oficial);
+
+    if (!isStaff && !isLider && !isOficial) {
+      return interaction.reply({
+        content: '❌ Permissão negada. Apenas Líderes, Oficiais e Staff podem confirmar banimentos.',
+        ephemeral: true
+      });
+    }
+
+    // Regra de segurança: O solicitante não pode confirmar o próprio ban, EXCETO se for o MasterAdmin / Kas
+    if (!isMasterAdmin && interaction.user.id === banReq.requested_by_id) {
+      return interaction.reply({
+        content: '⚠️ Você não pode confirmar um banimento solicitado por você mesmo. É necessária a confirmação de outro Líder ou Staff.',
+        ephemeral: true
+      });
+    }
+
+    await interaction.deferUpdate();
+
+    // 1. Tentar notificar o usuário via DM ANTES de banir do servidor
+    try {
+      const targetUser = await interaction.client.users.fetch(banReq.target_user_id).catch(() => null);
+      if (targetUser) {
+        const dmEmbed = new EmbedBuilder()
+          .setTitle('⚖️ COMUNICADO OFICIAL: BANIMENTO & EXPURGO DA COALIZÃO')
+          .setDescription(
+            `Você foi **banido permanentemente** do Discord oficial e de todas as atividades da Coalizão Vampir.\n\n` +
+            `**Motivo:** ${banReq.reason}\n\n` +
+            `Por decisão da Staff e do Conselho de Líderes, seu acesso a qualquer guilda parceira está revogado e você passa a constar como **Inimigo / KOS (Kill on Sight)** da Coalizão.`
+          )
+          .setColor(Colors.DarkRed)
+          .setFooter({ text: 'Decisão irrevogável da Liderança da Coalizão' })
+          .setTimestamp();
+
+        await targetUser.send({ embeds: [dmEmbed] }).catch(() => {});
+      }
+    } catch (err) {
+      console.warn(`[BAN] Não foi possível enviar DM para ${banReq.target_user_id}:`, err.message);
+    }
+
+    // 2. Executar o Ban no Discord
+    let banSuccess = false;
+    let banErrorMessage = null;
+    try {
+      await guild.members.ban(banReq.target_user_id, {
+        reason: `[COALIZÃO VAMPIR] Aprovado por ${interaction.user.tag}: ${banReq.reason}`
+      });
+      banSuccess = true;
+    } catch (err) {
+      banErrorMessage = err.message;
+      console.error(`[BAN] Erro ao banir usuário ${banReq.target_user_id}:`, err);
+    }
+
+    if (!banSuccess) {
+      return interaction.followUp({
+        content: `❌ Falha ao banir o membro no Discord: \`${banErrorMessage}\`. Verifique a hierarquia do cargo do Bot no Discord.`,
+        ephemeral: true
+      });
+    }
+
+    // 3. Atualizar registro no banco
+    await banRepo.updateBanRequest(requestId, {
+      status: 'approved',
+      confirmedById: interaction.user.id,
+      confirmedByTag: interaction.user.tag || interaction.user.username
+    });
+
+    // 4. Atualizar o Card no chat de líderes (desativa botões e altera status)
+    try {
+      const currentEmbed = interaction.message.embeds[0];
+      const updatedEmbed = EmbedBuilder.from(currentEmbed).setColor(Colors.DarkRed);
+
+      const statusIdx = currentEmbed.fields.findIndex(f => f.name.includes('Status'));
+      const statusField = {
+        name: '🔨 Status do Banimento',
+        value: `🔴 **BANIDO & EXPULSO DA COALIZÃO**\nConfirmado e executado por <@${interaction.user.id}> em <t:${Math.floor(Date.now() / 1000)}:f>`,
+        inline: false
+      };
+
+      if (statusIdx !== -1) {
+        updatedEmbed.spliceFields(statusIdx, 1, statusField);
+      } else {
+        updatedEmbed.addFields(statusField);
+      }
+
+      await interaction.message.edit({
+        embeds: [updatedEmbed],
+        components: []
+      });
+    } catch (err) {
+      console.error('[BAN] Erro ao editar card de líderes:', err);
+    }
+
+    // 5. Postar Anúncio Oficial no canal de anúncios (#anúncios)
+    try {
+      const anunciosChannelId = config?.channels?.anuncios || '1565129734508118188';
+      const chAnuncios = await guild.channels.fetch(anunciosChannelId).catch(() => null);
+      if (chAnuncios) {
+        const publicEmbed = new EmbedBuilder()
+          .setTitle('⚖️ COMUNICADO OFICIAL — EXPURGO & BANIMENTO DA COALIZÃO')
+          .setDescription(
+            `Informamos a todos os membros e guildas parceiras que o jogador <@${banReq.target_user_id}> (\`${banReq.target_user_tag || banReq.target_user_id}\`) foi **banido permanentemente** do Discord e expulso de todas as frentes da Coalizão Vampir.\n\n` +
+            `**Motivo:** ${banReq.reason}\n\n` +
+            `⚠️ **DIRETRIZ GERAL PARA TODAS AS GUILDAS:**\n` +
+            `Este indivíduo está **terminantemente proibido** de ingressar em qualquer guilda integrante da Coalizão. Caso seja avistado no jogo em áreas neutras, de disputa ou Geena, é considerado **Inimigo / KOS (Kill on Sight)** irrevogável.`
+          )
+          .setColor(Colors.DarkRed)
+          .setFooter({ text: 'Decisão oficial do Conselho de Líderes & Staff Vampir' })
+          .setTimestamp();
+
+        await chAnuncios.send({
+          content: `🚨 **EXPURGO DA COALIZÃO:** <@${banReq.target_user_id}> foi banido permanentemente.`,
+          embeds: [publicEmbed]
+        });
+      }
+    } catch (err) {
+      console.error('[BAN] Erro ao enviar anúncio de ban:', err);
+    }
+
+    // 6. Log no canal de logs
+    try {
+      const logsChannelId = config?.channels?.logs || '1565129751490990260';
+      const chLogs = await guild.channels.fetch(logsChannelId).catch(() => null);
+      if (chLogs) {
+        const logEmbed = new EmbedBuilder()
+          .setTitle('🔨 [LOG] Banimento Executado')
+          .setColor(Colors.Red)
+          .addFields(
+            { name: 'Alvo', value: `<@${banReq.target_user_id}> (\`${banReq.target_user_id}\`)`, inline: true },
+            { name: 'Solicitante', value: `<@${banReq.requested_by_id}>`, inline: true },
+            { name: 'Aprovado por', value: `<@${interaction.user.id}>`, inline: true },
+            { name: 'Motivo', value: banReq.reason, inline: false }
+          )
+          .setTimestamp();
+
+        await chLogs.send({ embeds: [logEmbed] });
+      }
+    } catch (err) {}
+
+    return;
+  }
+
+  // --- CANCELAR / RECUSAR BANIMENTO ---
+  if (customId.startsWith('btn_cancel_ban_')) {
+    const requestId = customId.replace('btn_cancel_ban_', '');
+    const banReq = await banRepo.findBanRequestById(requestId);
+
+    if (!banReq) {
+      return interaction.reply({
+        content: '❌ Solicitação de banimento não encontrada.',
+        ephemeral: true
+      });
+    }
+
+    if (banReq.status !== 'pending') {
+      return interaction.reply({
+        content: `⚠️ Esta solicitação já foi finalizada com o status **${banReq.status.toUpperCase()}**.`,
+        ephemeral: true
+      });
+    }
+
+    const isMasterAdmin = interaction.user.id === '273600843251712020' ||
+      interaction.user.id === guild.ownerId ||
+      interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+    const isStaff = isMasterAdmin || (config?.roles?.staff && interaction.member.roles.cache.has(config.roles.staff));
+    const isLider = config?.roles?.lider && interaction.member.roles.cache.has(config.roles.lider);
+    const isRequester = interaction.user.id === banReq.requested_by_id;
+
+    if (!isRequester && !isStaff && !isLider) {
+      return interaction.reply({
+        content: '❌ Apenas quem solicitou, a Staff ou os Líderes podem cancelar esta solicitação.',
+        ephemeral: true
+      });
+    }
+
+    await interaction.deferUpdate();
+
+    await banRepo.updateBanRequest(requestId, {
+      status: 'cancelled',
+      confirmedById: interaction.user.id,
+      confirmedByTag: interaction.user.tag || interaction.user.username
+    });
+
+    try {
+      const currentEmbed = interaction.message.embeds[0];
+      const updatedEmbed = EmbedBuilder.from(currentEmbed).setColor(Colors.Grey);
+
+      const statusIdx = currentEmbed.fields.findIndex(f => f.name.includes('Status'));
+      const statusField = {
+        name: '❌ Status',
+        value: `⚪ **SOLICITAÇÃO RECUSADA / CANCELADA** por <@${interaction.user.id}> em <t:${Math.floor(Date.now() / 1000)}:f>`,
+        inline: false
+      };
+
+      if (statusIdx !== -1) {
+        updatedEmbed.spliceFields(statusIdx, 1, statusField);
+      } else {
+        updatedEmbed.addFields(statusField);
+      }
+
+      await interaction.message.edit({
+        embeds: [updatedEmbed],
+        components: []
+      });
+    } catch (err) {
+      console.error('[BAN] Erro ao cancelar card de ban:', err);
+    }
 
     return;
   }
