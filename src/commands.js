@@ -37,6 +37,36 @@ const commands = [
     ),
 
   new SlashCommandBuilder()
+    .setName('deletar-guild')
+    .setDescription('Deleta permanentemente uma Guild parceira do sistema e do Discord (Apenas Staff/Master)')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .addStringOption(option =>
+      option.setName('tag')
+        .setDescription('Tag da Guild a ser deletada (ex: OLP, NOM, CHP, DIN)')
+        .setRequired(true)
+    )
+    .addBooleanOption(option =>
+      option.setName('deletar_discord')
+        .setDescription('Deletar também os canais, categoria e cargo da guild no Discord? (Padrão: True)')
+        .setRequired(false)
+    ),
+
+  new SlashCommandBuilder()
+    .setName('remover-guild')
+    .setDescription('Deleta permanentemente uma Guild parceira do sistema e do Discord (Apenas Staff/Master)')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .addStringOption(option =>
+      option.setName('tag')
+        .setDescription('Tag da Guild a ser deletada (ex: OLP, NOM, CHP, DIN)')
+        .setRequired(true)
+    )
+    .addBooleanOption(option =>
+      option.setName('deletar_discord')
+        .setDescription('Deletar também os canais, categoria e cargo da guild no Discord? (Padrão: True)')
+        .setRequired(false)
+    ),
+
+  new SlashCommandBuilder()
     .setName('painel-recrutamento')
     .setDescription('Atualiza ou publica o painel de recrutamento com todas as guilds cadastradas')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),

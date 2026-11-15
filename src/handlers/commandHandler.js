@@ -9,6 +9,7 @@ const {
   removeGuildOfficer,
   setGuildLeader,
   updateGuild,
+  removeGuild,
   addGuildCaller,
   removeGuildCaller,
   findGuildsByCallerId
@@ -1458,6 +1459,150 @@ async function handleCommand(interaction, refreshServerStats) {
     } catch (err) {
       console.error('[ERRO] Falha ao criar guild:', err);
       return interaction.editReply(`❌ Ocorreu um erro ao criar a guild: ${err.message}`);
+    }
+  }
+
+  // --- /deletar-guild & /remover-guild ---
+  if (commandName === 'deletar-guild' || commandName === 'remover-guild') {
+    await interaction.deferReply({ ephemeral: true });
+
+    const isMasterAdmin = interaction.user.id === '273600843251712020' ||
+      interaction.user.id === guild.ownerId ||
+      interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+    const isStaff = isMasterAdmin || (config?.roles?.staff && interaction.member.roles.cache.has(config.roles.staff));
+
+    if (!isStaff) {
+      return interaction.editReply('❌ Permissão negada. Apenas Administradores e a Staff Geral podem deletar uma guild parceira.');
+    }
+
+    const tagInput = interaction.options.getString('tag');
+    const deletarDiscord = interaction.options.getBoolean('deletar_discord') ?? true;
+
+    const allGuilds = getGuilds();
+    const targetGuild = allGuilds.find(g => g.tag.toUpperCase() === tagInput.toUpperCase().trim());
+
+    if (!targetGuild) {
+      return interaction.editReply(`❌ Nenhuma guild encontrada com a tag **[${tagInput.toUpperCase().trim()}]**.`);
+    }
+
+    try {
+      const deletedDetails = [];
+
+      // 1. Limpeza no Discord (Canais, Categoria e Cargo)
+      if (deletarDiscord) {
+        // A. Canais da categoria
+        if (targetGuild.categoryId) {
+          const allChannels = await guild.channels.fetch().catch(() => null);
+          if (allChannels) {
+            const guildChannels = allChannels.filter(c => c && c.parentId === targetGuild.categoryId);
+            for (const [, ch] of guildChannels) {
+              await ch.delete('Exclusão de guild da Coalizão').catch(() => {});
+            }
+          }
+          const cat = await guild.channels.fetch(targetGuild.categoryId).catch(() => null);
+          if (cat) {
+            await cat.delete('Exclusão de guild da Coalizão').catch(() => {});
+            deletedDetails.push('• Categoria e canais internos apagados');
+          }
+        }
+
+        // B. Cargo da Guild
+        if (targetGuild.roleId) {
+          const role = await guild.roles.fetch(targetGuild.roleId).catch(() => null);
+          if (role) {
+            await role.delete('Exclusão de guild da Coalizão').catch(() => {});
+            deletedDetails.push(`• Cargo da guild removido`);
+          }
+        }
+
+        // C. Card no canal de recrutamento
+        if (targetGuild.recruitmentMessageId && config?.channels?.recrutamento) {
+          const chRec = await guild.channels.fetch(config.channels.recrutamento).catch(() => null);
+          if (chRec) {
+            const cardMsg = await chRec.messages.fetch(targetGuild.recruitmentMessageId).catch(() => null);
+            if (cardMsg) await cardMsg.delete().catch(() => {});
+          }
+        }
+
+        // D. Atualizar cargos de Líder e Oficiais se não liderarem outras guilds
+        if (targetGuild.leaderId) {
+          const otherLeaderGuilds = allGuilds.filter(g => g.id !== targetGuild.id && g.leaderId === targetGuild.leaderId);
+          if (otherLeaderGuilds.length === 0 && config?.roles?.lider) {
+            const leaderMember = await guild.members.fetch(targetGuild.leaderId).catch(() => null);
+            if (leaderMember) await leaderMember.roles.remove(config.roles.lider).catch(() => {});
+          }
+        }
+        if (targetGuild.officerIds && targetGuild.officerIds.length > 0) {
+          for (const offId of targetGuild.officerIds) {
+            const otherOfficerGuilds = allGuilds.filter(g => g.id !== targetGuild.id && g.officerIds && g.officerIds.includes(offId));
+            if (otherOfficerGuilds.length === 0 && config?.roles?.oficial) {
+              const offMember = await guild.members.fetch(offId).catch(() => null);
+              if (offMember) await offMember.roles.remove(config.roles.oficial).catch(() => {});
+            }
+          }
+        }
+      }
+
+      // 2. Remoção do Banco de Dados e Cache
+      removeGuild(targetGuild.id);
+      refreshServerStats(interaction.client).catch(() => {});
+
+      // 3. Atualizar Painéis Públicos
+      if (config?.channels?.recrutamento) {
+        guild.channels.fetch(config.channels.recrutamento).then(ch => {
+          if (ch) renderRecruitmentPanel(guild, ch);
+        }).catch(() => {});
+      }
+
+      if (config?.channels?.transferencia) {
+        guild.channels.fetch(config.channels.transferencia).then(ch => {
+          if (ch) renderOrUpdateTransferPanel(guild, ch);
+        }).catch(() => {});
+      }
+
+      if (config?.channels?.painelPresencas) {
+        guild.channels.fetch(config.channels.painelPresencas).then(ch => {
+          if (ch) renderOrUpdatePresencePanel(guild, ch);
+        }).catch(() => {});
+      }
+
+      // 4. Log de auditoria
+      if (config?.channels?.logs) {
+        guild.channels.fetch(config.channels.logs).then(ch => {
+          if (ch) {
+            ch.send({
+              embeds: [
+                new EmbedBuilder()
+                  .setTitle('🗑️ Guild Removida da Coalizão')
+                  .setDescription(
+                    `A guild **[${targetGuild.tag}] ${targetGuild.name}** foi permanentemente removida da Coalizão!\n\n` +
+                    `• **Ex-Líder:** <@${targetGuild.leaderId}>\n` +
+                    `• **Executado por:** <@${interaction.user.id}>\n` +
+                    `• **Canais e Cargos:** ${deletarDiscord ? 'Deletados do Discord' : 'Mantidos no Discord'}`
+                  )
+                  .setColor(Colors.DarkRed)
+                  .setTimestamp()
+              ]
+            }).catch(() => {});
+          }
+        }).catch(() => {});
+      }
+
+      const replyEmbed = new EmbedBuilder()
+        .setTitle(`🗑️ Guild [${targetGuild.tag}] ${targetGuild.name} Deletada!`)
+        .setDescription(
+          `A legião **[${targetGuild.tag}] ${targetGuild.name}** foi permanentemente removida do sistema e do banco de dados!\n\n` +
+          (deletedDetails.length > 0 ? deletedDetails.join('\n') + '\n\n' : '\n') +
+          `• Painel de recrutamento e central de transferências sincronizados!\n` +
+          `• Estatísticas do servidor recalculadas.`
+        )
+        .setColor(Colors.Red)
+        .setTimestamp();
+
+      return interaction.editReply({ embeds: [replyEmbed] });
+    } catch (err) {
+      console.error('[DELETAR-GUILD] Erro ao remover guild:', err);
+      return interaction.editReply(`❌ Ocorreu um erro ao deletar a guild: ${err.message}`);
     }
   }
 
