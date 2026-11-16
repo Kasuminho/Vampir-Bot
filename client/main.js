@@ -1,10 +1,11 @@
 const { app, BrowserWindow, globalShortcut, ipcMain, screen } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
 let mainWindow = null;
 let isClickThrough = false;
 
-// Register custom protocol vampir://
+// Custom protocol vampir://
 if (process.defaultApp) {
   if (process.argv.length >= 2) {
     app.setAsDefaultProtocolClient('vampir', process.execPath, [path.resolve(process.argv[1])]);
@@ -13,15 +14,41 @@ if (process.defaultApp) {
   app.setAsDefaultProtocolClient('vampir');
 }
 
+// Config file for auto-loading live server overlay (zero-download updates)
+const configPath = path.join(app.getPath('userData'), 'overlay-config.json');
+const boundsPath = path.join(app.getPath('userData'), 'window-bounds.json');
+
+function loadJson(p) {
+  try {
+    if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, 'utf8'));
+  } catch (e) {}
+  return {};
+}
+
+function saveJson(p, data) {
+  try {
+    fs.writeFileSync(p, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) {}
+}
+
 function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width, height } = primaryDisplay.workAreaSize;
+  const savedBounds = loadJson(boundsPath);
+  const savedConfig = loadJson(configPath);
+
+  // Default size: on big displays (like 43" 4K/2K), default to comfortable 1500x950
+  const isLargeDisplay = width >= 2560 || height >= 1400;
+  const defaultW = isLargeDisplay ? Math.min(1600, width - 80) : Math.min(1280, width - 40);
+  const defaultH = isLargeDisplay ? Math.min(1050, height - 80) : Math.min(850, height - 40);
 
   mainWindow = new BrowserWindow({
-    width: Math.min(1280, width),
-    height: Math.min(800, height),
-    x: 40,
-    y: 40,
+    width: savedBounds.width || defaultW,
+    height: savedBounds.height || defaultH,
+    x: savedBounds.x !== undefined ? savedBounds.x : 40,
+    y: savedBounds.y !== undefined ? savedBounds.y : 40,
+    minWidth: 600,
+    minHeight: 450,
     transparent: true,
     frame: false,
     alwaysOnTop: true,
@@ -29,12 +56,24 @@ function createWindow() {
     resizable: true,
     webPreferences: {
       nodeIntegration: true,
-      contextIsolation: false
+      contextIsolation: false,
+      preload: path.join(__dirname, 'preload.js'),
+      webSecurity: false
     }
   });
 
   mainWindow.setAlwaysOnTop(true, 'screen-saver');
-  mainWindow.loadFile(path.join(__dirname, 'index.html'));
+
+  // Save window position & size when user resizes or moves it (great for 43" displays)
+  function saveCurrentBounds() {
+    if (!mainWindow || mainWindow.isDestroyed() || mainWindow.isMinimized()) return;
+    saveJson(boundsPath, mainWindow.getBounds());
+  }
+  mainWindow.on('resize', saveCurrentBounds);
+  mainWindow.on('move', saveCurrentBounds);
+
+  // Load live server version if configured, else load local index.html
+  loadTargetPage(savedConfig);
 
   // Handle deep link token on start
   handleProtocolUrl(process.argv);
@@ -47,18 +86,34 @@ function createWindow() {
   });
 }
 
+function loadTargetPage(cfg) {
+  if (!mainWindow) return;
+
+  if (cfg && cfg.serverUrl && cfg.token) {
+    const targetUrl = `${cfg.serverUrl.replace(/\/+$/, '')}/?token=${encodeURIComponent(cfg.token)}&app=1`;
+    console.log(`🌐 [ELECTRON] Carregando interface ao vivo do servidor: ${targetUrl}`);
+    mainWindow.loadURL(targetUrl).catch((err) => {
+      console.warn('⚠️ [ELECTRON] Falha ao carregar servidor remoto, caindo para local:', err.message);
+      mainWindow.loadFile(path.join(__dirname, 'index.html'));
+    });
+  } else {
+    console.log('💻 [ELECTRON] Carregando interface local...');
+    mainWindow.loadFile(path.join(__dirname, 'index.html'));
+  }
+}
+
 function registerGlobalHotkeys() {
-  // Numpad 1 to 6 -> Bosses 1 to 6
-  for (let i = 1; i <= 6; i++) {
+  // Numpad 0 -> Armar seleção de guilda (0 + 1-8 -> Guilda)
+  globalShortcut.register('num0', () => {
+    sendToRenderer('hotkey_guild_select_arm');
+  });
+
+  // Numpad 1 to 8 -> Dígitos (Bosses 1 a 6 ou Guildas 1 a 8)
+  for (let i = 1; i <= 8; i++) {
     globalShortcut.register(`num${i}`, () => {
-      sendToRenderer('hotkey_boss', i);
+      sendToRenderer('hotkey_numpad_digit', i);
     });
   }
-
-  // Numpad 0 -> Central Boss
-  globalShortcut.register('num0', () => {
-    sendToRenderer('hotkey_boss', 0);
-  });
 
   // Numpad / (Divide) -> Alternar modo PVP / BOSS
   globalShortcut.register('numdiv', () => {
@@ -117,18 +172,35 @@ app.on('second-instance', (event, commandLine) => {
 });
 
 function handleProtocolUrl(argv) {
-  const urlArg = argv.find(arg => arg.startsWith('vampir://'));
+  const urlArg = argv.find(arg => arg && arg.startsWith('vampir://'));
   if (urlArg && mainWindow) {
-    // vampir://token=eyJ...
-    const url = new URL(urlArg);
-    const token = url.searchParams.get('token');
-    if (token) {
-      sendToRenderer('auth_token_received', token);
-    }
+    try {
+      const clean = urlArg.replace('vampir://', 'https://');
+      const url = new URL(clean);
+      const token = url.searchParams.get('token');
+      const server = url.searchParams.get('server') || url.origin;
+      if (token) {
+        sendToRenderer('auth_data_received', { token, server });
+      }
+    } catch (e) {}
   }
 }
 
 // IPC from renderer
+ipcMain.on('save_connection_config', (event, cfg) => {
+  if (cfg && cfg.serverUrl && cfg.token) {
+    saveJson(configPath, cfg);
+    loadTargetPage(cfg);
+  }
+});
+
+ipcMain.on('reload_window', () => {
+  if (mainWindow) {
+    const savedConfig = loadJson(configPath);
+    loadTargetPage(savedConfig);
+  }
+});
+
 ipcMain.on('set_click_through', (event, enabled) => {
   isClickThrough = enabled;
   if (mainWindow) {
