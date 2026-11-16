@@ -1508,12 +1508,46 @@ async function handleCommand(interaction, refreshServerStats) {
           }
         }
 
-        // B. Cargo da Guild
+        // B. Cargo da Guild e limpeza de Player Validado nos membros
+        const otherGuildRoles = allGuilds
+          .filter(g => g.id !== targetGuild.id)
+          .map(g => g.roleId)
+          .filter(Boolean);
+        const validadoRoleId = config?.roles?.validado;
+        let validadosRemovidos = 0;
+
         if (targetGuild.roleId) {
           const role = await guild.roles.fetch(targetGuild.roleId).catch(() => null);
           if (role) {
+            // Garante que todos os membros estejam em cache
+            await guild.members.fetch().catch(() => {});
+            const roleMembers = role.members;
+
+            for (const [, m] of roleMembers) {
+              if (m.user.bot) continue;
+              if (m.id === '273600843251712020' || m.id === guild.ownerId) continue;
+              if (config?.roles?.staff && m.roles.cache.has(config.roles.staff)) continue;
+
+              const hasOtherGuild = m.roles.cache.some(r => otherGuildRoles.includes(r.id));
+              if (!hasOtherGuild) {
+                if (validadoRoleId && m.roles.cache.has(validadoRoleId)) {
+                  await m.roles.remove(validadoRoleId).catch(() => {});
+                  validadosRemovidos++;
+                }
+                if (config?.roles?.caller && m.roles.cache.has(config.roles.caller)) {
+                  const isCallerElsewhere = allGuilds.some(g => g.id !== targetGuild.id && g.callerIds?.includes(m.id));
+                  if (!isCallerElsewhere) {
+                    await m.roles.remove(config.roles.caller).catch(() => {});
+                  }
+                }
+              }
+            }
+
             await role.delete('Exclusão de guild da Coalizão').catch(() => {});
             deletedDetails.push(`• Cargo da guild removido`);
+            if (validadosRemovidos > 0) {
+              deletedDetails.push(`• Cargo de Player Validado removido de ${validadosRemovidos} membro(s) que ficaram sem guild`);
+            }
           }
         }
 
@@ -1529,17 +1563,33 @@ async function handleCommand(interaction, refreshServerStats) {
         // D. Atualizar cargos de Líder e Oficiais se não liderarem outras guilds
         if (targetGuild.leaderId) {
           const otherLeaderGuilds = allGuilds.filter(g => g.id !== targetGuild.id && g.leaderId === targetGuild.leaderId);
-          if (otherLeaderGuilds.length === 0 && config?.roles?.lider) {
-            const leaderMember = await guild.members.fetch(targetGuild.leaderId).catch(() => null);
-            if (leaderMember) await leaderMember.roles.remove(config.roles.lider).catch(() => {});
+          const leaderMember = await guild.members.fetch(targetGuild.leaderId).catch(() => null);
+          if (leaderMember && !leaderMember.user.bot && leaderMember.id !== '273600843251712020' && leaderMember.id !== guild.ownerId) {
+            if (otherLeaderGuilds.length === 0 && config?.roles?.lider) {
+              await leaderMember.roles.remove(config.roles.lider).catch(() => {});
+            }
+            const hasOtherGuild = leaderMember.roles.cache.some(r => otherGuildRoles.includes(r.id));
+            if (!hasOtherGuild && (!config?.roles?.staff || !leaderMember.roles.cache.has(config.roles.staff))) {
+              if (validadoRoleId && leaderMember.roles.cache.has(validadoRoleId)) {
+                await leaderMember.roles.remove(validadoRoleId).catch(() => {});
+              }
+            }
           }
         }
         if (targetGuild.officerIds && targetGuild.officerIds.length > 0) {
           for (const offId of targetGuild.officerIds) {
             const otherOfficerGuilds = allGuilds.filter(g => g.id !== targetGuild.id && g.officerIds && g.officerIds.includes(offId));
-            if (otherOfficerGuilds.length === 0 && config?.roles?.oficial) {
-              const offMember = await guild.members.fetch(offId).catch(() => null);
-              if (offMember) await offMember.roles.remove(config.roles.oficial).catch(() => {});
+            const offMember = await guild.members.fetch(offId).catch(() => null);
+            if (offMember && !offMember.user.bot && offMember.id !== '273600843251712020' && offMember.id !== guild.ownerId) {
+              if (otherOfficerGuilds.length === 0 && config?.roles?.oficial) {
+                await offMember.roles.remove(config.roles.oficial).catch(() => {});
+              }
+              const hasOtherGuild = offMember.roles.cache.some(r => otherGuildRoles.includes(r.id));
+              if (!hasOtherGuild && (!config?.roles?.staff || !offMember.roles.cache.has(config.roles.staff))) {
+                if (validadoRoleId && offMember.roles.cache.has(validadoRoleId)) {
+                  await offMember.roles.remove(validadoRoleId).catch(() => {});
+                }
+              }
             }
           }
         }
@@ -2104,6 +2154,93 @@ async function handleCommand(interaction, refreshServerStats) {
     return interaction.editReply({
       content: `✅ Solicitação de banimento contra <@${targetUser.id}> enviada com sucesso para o canal de lideranças (<#${chLideres.id}>).`
     });
+  }
+
+  // --- /limpar-validados ---
+  if (commandName === 'limpar-validados') {
+    await interaction.deferReply({ ephemeral: true });
+
+    const isMasterAdmin = interaction.user.id === '273600843251712020' ||
+      interaction.user.id === guild.ownerId ||
+      interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+    const isStaff = isMasterAdmin || (config?.roles?.staff && interaction.member.roles.cache.has(config.roles.staff));
+
+    if (!isStaff) {
+      return interaction.editReply('❌ Permissão negada. Apenas Administradores e Staff Geral podem executar a limpeza de validados.');
+    }
+
+    await guild.members.fetch().catch(() => {});
+    const validadoRoleId = config?.roles?.validado;
+    const staffRoleId = config?.roles?.staff;
+    const callerRoleId = config?.roles?.caller;
+    const liderRoleId = config?.roles?.lider;
+    const oficialRoleId = config?.roles?.oficial;
+
+    if (!validadoRoleId) {
+      return interaction.editReply('❌ Cargo de Player Validado não está configurado no sistema.');
+    }
+
+    const allGuilds = getGuilds();
+    const activeGuildRoleIds = new Set(allGuilds.map(g => g.roleId).filter(Boolean));
+    const allLeaderIds = new Set(allGuilds.map(g => g.leaderId).filter(Boolean));
+    const allOfficerIds = new Set();
+    const allCallerIds = new Set();
+    allGuilds.forEach(g => {
+      (g.officerIds || []).forEach(id => allOfficerIds.add(id));
+      (g.callerIds || []).forEach(id => allCallerIds.add(id));
+    });
+
+    let cleanedCount = 0;
+    const cleanedUsers = [];
+
+    for (const [, m] of guild.members.cache) {
+      if (m.user.bot) continue;
+      if (m.id === '273600843251712020' || m.id === guild.ownerId) continue;
+      if (staffRoleId && m.roles.cache.has(staffRoleId)) continue;
+
+      const hasActiveGuild = [...m.roles.cache.keys()].some(rId => activeGuildRoleIds.has(rId));
+      if (!hasActiveGuild) {
+        let modified = false;
+
+        if (m.roles.cache.has(validadoRoleId)) {
+          await m.roles.remove(validadoRoleId).catch(() => {});
+          modified = true;
+        }
+
+        if (callerRoleId && m.roles.cache.has(callerRoleId) && !allCallerIds.has(m.id)) {
+          await m.roles.remove(callerRoleId).catch(() => {});
+          modified = true;
+        }
+
+        if (oficialRoleId && m.roles.cache.has(oficialRoleId) && !allOfficerIds.has(m.id)) {
+          await m.roles.remove(oficialRoleId).catch(() => {});
+          modified = true;
+        }
+
+        if (liderRoleId && m.roles.cache.has(liderRoleId) && !allLeaderIds.has(m.id)) {
+          await m.roles.remove(liderRoleId).catch(() => {});
+          modified = true;
+        }
+
+        if (modified) {
+          cleanedCount++;
+          cleanedUsers.push(`<@${m.id}> (\`${m.user.tag || m.user.username}\`)`);
+        }
+      }
+    }
+
+    const embed = new EmbedBuilder()
+      .setTitle('🧹 Varredura de Players Validados Concluída')
+      .setColor(cleanedCount > 0 ? Colors.Green : Colors.Blue)
+      .setDescription(
+        cleanedCount > 0
+          ? `Foram encontrados e regularizados **${cleanedCount} membro(s)** que estavam com cargo de aliança sem pertencer a nenhuma guild ativa:\n\n${cleanedUsers.slice(0, 20).join('\n')}${cleanedUsers.length > 20 ? `\n*...e mais ${cleanedUsers.length - 20} membros.*` : ''}`
+          : '✅ Todos os membros com cargo `Player Validado` pertencem a uma guild ativa ou à Staff! Nenhum membro órfão encontrado.'
+      )
+      .setFooter({ text: 'Varredura de consistência Zero-Trust' })
+      .setTimestamp();
+
+    return interaction.editReply({ embeds: [embed] });
   }
 }
 

@@ -86,6 +86,11 @@ const commands = [
     ),
 
   new SlashCommandBuilder()
+    .setName('limpar-validados')
+    .setDescription('Varre o servidor e remove o cargo Player Validado de quem não tem guild ativa (Staff/Master)')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+
+  new SlashCommandBuilder()
     .setName('painel-recrutamento')
     .setDescription('Atualiza ou publica o painel de recrutamento com todas as guilds cadastradas')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
@@ -409,7 +414,7 @@ const commands = [
         .setRequired(true)
         .addChoices(
           { name: '👑 TODAS AS GUILDAS (Call Geral)', value: 'ALL' },
-          { name: '🏰 [DIN] Dinastia', value: 'DIN' },
+          { name: '🏰 [TRANS] Transilvânia', value: 'TRANS' },
           { name: '🏰 [NOM] No Mercy', value: 'NOM' },
           { name: '🏰 [OLP] OLIMPO', value: 'OLP' },
           { name: '🏰 [NGF] NightFall', value: 'NGF' },
