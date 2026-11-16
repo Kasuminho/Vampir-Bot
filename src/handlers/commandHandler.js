@@ -2004,6 +2004,7 @@ async function handleCommand(interaction, refreshServerStats) {
         )
         .addFields(
           { name: '⚔️ Próximo Boss Geena', value: `\`${nextGeena.name}\` (em ${nextGeena.minutesUntilSpawn} minutos)`, inline: false },
+          { name: '🕹️ Modo de Ativação', value: status.isActive ? (status.triggeredBy === 'manual' ? '🔴 Manual (Só sai com comando manual)' : '🤖 Automático (Saída em massa)') : '*Desativado*', inline: true },
           { name: '👥 Membros em Call Agora', value: `\`${status.currentVoiceCount} jogadores\``, inline: true },
           { name: '🔥 Pico da Batalha', value: `\`${status.peakVoiceCount} jogadores\``, inline: true },
           { name: '⏱️ Início do Modo', value: status.startedAt ? `<t:${Math.floor(new Date(status.startedAt).getTime() / 1000)}:R>` : '*Nenhum*', inline: true }

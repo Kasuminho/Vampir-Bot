@@ -29,8 +29,23 @@ let lockdownState = {
   triggeredBy: 'automatic' // 'automatic' | 'manual'
 };
 
+// Histórico de eventos de boss já disparados/concluídos para NUNCA reativar no mesmo horário
+const handledEvents = new Set();
+
+// Inicialização: Marca eventos de horários já passados no dia atual como tratados
+(function initHandledEvents() {
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const currentHour = now.getHours();
+  for (const h of GEENA_HOURS) {
+    if (currentHour >= h) {
+      handledEvents.add(`${dateStr}_geena_${h}`);
+    }
+  }
+})();
+
 /**
- * Conta quantos membros estão conectados em calls de combate/comunidade (excluindo AFK)
+ * Conta quantos membros estão conectados em calls de combate/comunidade (excluindo AFK e canais de status)
  */
 function getCoalitionVoiceCount(guild) {
   let count = 0;
@@ -48,25 +63,22 @@ function getCoalitionVoiceCount(guild) {
  * Retorna o próximo boss de Geena e quantos minutos faltam
  */
 function getNextGeenaEvent(now = new Date()) {
-  const currentHour = now.getHours();
-  const currentMinute = now.getMinutes();
-  const currentSecond = now.getSeconds();
   const nowMs = now.getTime();
-
   let targetDate = null;
   let targetHour = null;
 
   for (const h of GEENA_HOURS) {
     const candidate = new Date(now);
     candidate.setHours(h, 0, 0, 0);
-    if (candidate.getTime() > nowMs - (10 * 60 * 1000)) { // Considera até 10 min após o spawn como o evento atual
+    // Considera este horário de boss enquanto estiver entre 15 min antes e 60 min após o spawn
+    if (candidate.getTime() > nowMs - (60 * 60 * 1000)) {
       targetDate = candidate;
       targetHour = h;
       break;
     }
   }
 
-  // Se passou das 23:10, o próximo é 15:00 de amanhã
+  // Se passou de todos os horários do dia, o próximo é 15:00 de amanhã
   if (!targetDate) {
     targetDate = new Date(now);
     targetDate.setDate(targetDate.getDate() + 1);
@@ -77,8 +89,12 @@ function getNextGeenaEvent(now = new Date()) {
   const diffMs = targetDate.getTime() - nowMs;
   const minutesUntilSpawn = Math.round(diffMs / 60000);
 
+  const dateStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
+  const key = `${dateStr}_geena_${targetHour}`;
+
   return {
-    key: `geena_${targetHour}`,
+    key,
+    hour: targetHour,
     name: `Geena ${targetHour}:00`,
     spawnDate: targetDate,
     minutesUntilSpawn
@@ -88,10 +104,10 @@ function getNextGeenaEvent(now = new Date()) {
 /**
  * Ativa o modo de Lockdown / Combate
  */
-async function activateLockdown(guild, reason = '15 minutos antes do Boss de Geena', triggeredBy = 'automatic') {
+async function activateLockdown(guild, reason = '15 minutos antes do Boss de Geena', triggeredBy = 'automatic', customKey = null) {
   if (lockdownState.isActive) return false;
 
-  console.log(`[LOCKDOWN] Ativando Modo Combate / OpSec (${reason})...`);
+  console.log(`[LOCKDOWN] Ativando Modo Combate / OpSec (${reason} | Tipo: ${triggeredBy})...`);
   const everyoneRole = guild.roles.everyone;
 
   // 1. Oculta os canais comunitários para @everyone
@@ -122,19 +138,27 @@ async function activateLockdown(guild, reason = '15 minutos antes do Boss de Gee
   const currentVoice = getCoalitionVoiceCount(guild);
   const now = new Date();
   const nextEvent = getNextGeenaEvent(now);
+  const eventKey = customKey || (triggeredBy === 'manual' ? 'manual' : nextEvent.key);
 
   lockdownState = {
     isActive: true,
     startedAt: now.toISOString(),
-    eventKey: nextEvent.name,
+    eventKey,
     bossSpawnTime: nextEvent.spawnDate.toISOString(),
     peakVoiceCount: currentVoice,
     peakRecordedAt: now.toISOString(),
     triggeredBy
   };
 
+  // Se foi acionado automaticamente, registra na lista de eventos para nunca reativar no mesmo horário
+  if (triggeredBy === 'automatic') {
+    handledEvents.add(eventKey);
+  }
+
   // 4. Envia alerta para logs e chat de liderança
   const config = getServerConfig();
+  const isManual = triggeredBy === 'manual';
+
   const embedAlert = new EmbedBuilder()
     .setTitle('🔒 ─── MODO COMBATE ATIVADO ┃ OPSEC ─── 🔒')
     .setDescription(
@@ -142,12 +166,14 @@ async function activateLockdown(guild, reason = '15 minutos antes do Boss de Gee
       `• **Motivo:** \`${reason}\`\n` +
       `• **Aba Liberada:** Apenas \`🚪 │ RECEPÇÃO & ENTRADA\` (Recrutamento & Regras) permanece visível para visitantes.\n` +
       `• **Membros da Coalizão:** Usuários com cargo de Legião continuam acessando 100% dos canais e calls normalmente.\n\n` +
-      `📡 **Monitoramento:** As salas de voz estão sendo monitoradas. Quando a batalha terminar e ocorrer a **saída em massa da call**, o bot reabrirá os canais automaticamente!`
+      (isManual
+        ? `⚠️ **Ativação Manual:** Este modo foi ativado manualmente pela liderança e **NÃO desativará automaticamente**. Só será desativado quando a Staff executar \`/lockdown acao:desativar\`.`
+        : `📡 **Monitoramento Automático:** As salas de voz estão sendo monitoradas. Quando a batalha terminar e ocorrer a **saída em massa da call**, o bot reabrirá os canais automaticamente e **não ativará novamente** até o próximo horário!`)
     )
     .addFields(
       { name: '👥 Conectados em Call Inicial', value: `\`${currentVoice} membros\``, inline: true },
-      { name: '⚔️ Evento Alvo', value: `\`${nextEvent.name}\``, inline: true },
-      { name: '🕹️ Tipo', value: `\`${triggeredBy === 'manual' ? 'Manual' : 'Automático'}\``, inline: true }
+      { name: '⚔️ Evento Alvo', value: `\`${isManual ? 'Operação Manual' : nextEvent.name}\``, inline: true },
+      { name: '🕹️ Tipo', value: `\`${isManual ? 'Manual (Desativação Manual)' : 'Automático (Saída em Massa)'}\``, inline: true }
     )
     .setColor(Colors.DarkRed)
     .setTimestamp();
@@ -190,8 +216,23 @@ async function deactivateLockdown(guild, reason = 'Saída em massa das calls det
     }
   }
 
+  // 2. Restaura categoria Comunidade Geral
+  try {
+    const cat = await guild.channels.fetch(COMMUNITY_CATEGORY_ID).catch(() => null);
+    if (cat) {
+      await cat.permissionOverwrites.edit(everyoneRole.id, {
+        ViewChannel: true
+      }, { reason: `[OPSEC] Fim do Lockdown: ${reason}` });
+    }
+  } catch (err) {}
+
   const prevPeak = lockdownState.peakVoiceCount;
-  const startedAt = lockdownState.startedAt;
+  const currentEventKey = lockdownState.eventKey;
+
+  // Se pertencia a um evento de boss, assegura que fique marcado no histórico para nunca reativar
+  if (currentEventKey && currentEventKey !== 'manual') {
+    handledEvents.add(currentEventKey);
+  }
 
   lockdownState = {
     isActive: false,
@@ -203,7 +244,7 @@ async function deactivateLockdown(guild, reason = 'Saída em massa das calls det
     triggeredBy: 'automatic'
   };
 
-  // 2. Notifica o encerramento do lockdown
+  // 3. Notifica o encerramento do lockdown
   const config = getServerConfig();
   const embedUnlock = new EmbedBuilder()
     .setTitle('🔓 ─── MODO COMBATE FINALIZADO ┃ CANAIS LIBERADOS ─── 🔓')
@@ -242,21 +283,16 @@ async function checkLockdownRoutine(client) {
     const now = new Date();
     const nextEvent = getNextGeenaEvent(now);
 
-    // 1. Checagem de Ativação Automática: Faltando 15 minutos ou menos para o Boss
-    if (!lockdownState.isActive) {
-      // Se faltam entre 0 e 15 minutos para o spawn de Geena
-      if (nextEvent.minutesUntilSpawn <= 15 && nextEvent.minutesUntilSpawn >= -5) {
-        await activateLockdown(
-          guild,
-          `Faltam ${nextEvent.minutesUntilSpawn} minutos para o respawn de ${nextEvent.name}`,
-          'automatic'
-        );
-      }
-      return;
-    }
-
-    // 2. Checagem de Desativação Automática (quando o lockdown está ativo)
+    // =========================================================================
+    // CASO 1: LOCKDOWN JÁ ESTÁ ATIVO
+    // =========================================================================
     if (lockdownState.isActive) {
+      // REGRA 2: Se foi ativado manualmente, NUNCA sai por rotina automática!
+      // Apenas a Staff/Liderança pode desativar pelo comando manual (/lockdown acao:desativar).
+      if (lockdownState.triggeredBy === 'manual') {
+        return;
+      }
+
       const currentVoice = getCoalitionVoiceCount(guild);
 
       // Atualiza o pico se a call estiver crescendo
@@ -265,16 +301,17 @@ async function checkLockdownRoutine(client) {
         lockdownState.peakRecordedAt = now.toISOString();
       }
 
-      const elapsedMs = now.getTime() - new Date(lockdownState.startedAt).getTime();
-      const elapsedMinutes = Math.floor(elapsedMs / 60000);
+      const spawnDiffMinutes = Math.floor((now.getTime() - new Date(lockdownState.bossSpawnTime).getTime()) / 60000);
 
-      // Trava de segurança: Nunca reabre antes de 15 minutos de lockdown (garante que passa pelo horário do spawn)
-      if (elapsedMinutes < 15) {
+      // Trava de segurança: Nunca desativa antes do boss nascer e de ter pelo menos 3 minutos de combate
+      if (spawnDiffMinutes < 3) {
         return;
       }
 
-      // Critério A: Saída em massa das calls (pico foi pelo menos 5 pessoas e agora caiu mais de 50%)
-      if (lockdownState.peakVoiceCount >= 5 && currentVoice <= Math.ceil(lockdownState.peakVoiceCount * 0.45)) {
+      // REGRA 1: Desativação automática por SAÍDA EM MASSA das calls
+      // Cenário A: Batalha com presença representativa (pico >= 8 pessoas)
+      // Desativa quando houver queda de pelo menos 60% em relação ao pico ou sobrarem <= 4 membros
+      if (lockdownState.peakVoiceCount >= 8 && (currentVoice <= Math.ceil(lockdownState.peakVoiceCount * 0.40) || currentVoice <= 4)) {
         await deactivateLockdown(
           guild,
           `Saída em massa detectada (Ocupação caiu de ${lockdownState.peakVoiceCount} para ${currentVoice} membros)`
@@ -282,22 +319,47 @@ async function checkLockdownRoutine(client) {
         return;
       }
 
-      // Critério B: Esvaziamento total da call de combate (3 ou menos membros após pelo menos 20 min)
-      if (elapsedMinutes >= 20 && currentVoice <= 3 && lockdownState.peakVoiceCount >= 3) {
+      // Cenário B: Batalha menor (pico entre 4 e 7 pessoas)
+      // Desativa se após 10 minutos pós-spawn a call esvaziar para <= 2 membros
+      if (lockdownState.peakVoiceCount >= 4 && currentVoice <= 2 && spawnDiffMinutes >= 10) {
         await deactivateLockdown(
           guild,
-          `Calls de combate esvaziadas (${currentVoice} membros restantes)`
+          `Calls de combate esvaziadas (Ocupação caiu de ${lockdownState.peakVoiceCount} para ${currentVoice} membros)`
         );
         return;
       }
 
-      // Critério C: Timeout Máximo de Segurança (50 minutos de lockdown - combate já encerrou)
-      if (elapsedMinutes >= 50) {
+      // Cenário C: Timeout máximo de segurança pós-spawn (50 minutos após spawn)
+      if (spawnDiffMinutes >= 50) {
         await deactivateLockdown(
           guild,
-          `Tempo limite máximo de combate atingido (50 minutos)`
+          `Tempo limite máximo de combate atingido pós-spawn (${spawnDiffMinutes} minutos)`
         );
         return;
+      }
+
+      return;
+    }
+
+    // =========================================================================
+    // CASO 2: LOCKDOWN NÃO ESTÁ ATIVO
+    // =========================================================================
+    if (!lockdownState.isActive) {
+      // REGRA 1: "não ativa de novo até o próximo horário"
+      // Se este horário de boss já foi executado hoje, NÃO ATIVA DE NOVO!
+      if (handledEvents.has(nextEvent.key)) {
+        return;
+      }
+
+      // Ativação automática: faltando entre 0 e 15 minutos para o spawn do Boss
+      if (nextEvent.minutesUntilSpawn <= 15 && nextEvent.minutesUntilSpawn >= 0) {
+        handledEvents.add(nextEvent.key);
+        await activateLockdown(
+          guild,
+          `Faltam ${nextEvent.minutesUntilSpawn} minutos para o respawn de ${nextEvent.name}`,
+          'automatic',
+          nextEvent.key
+        );
       }
     }
   } catch (err) {
