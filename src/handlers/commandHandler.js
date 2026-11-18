@@ -37,7 +37,7 @@ const {
   extendGeenaWindow,
   renderOrUpdateCheckinBanner
 } = require('../attendance_manager');
-const { createAuthResponse, renderOverlayPanel, executeCommandCall, evaluateMemberPermissions } = require('../services/overlayService');
+const { createAuthResponse, renderOverlayPanel, executeCommandCall, evaluateMemberPermissions, broadcastGuildsUpdate } = require('../services/overlayService');
 const { activateLockdown, deactivateLockdown, getLockdownStatus, getNextGeenaEvent } = require('../services/lockdownService');
 
 function parseHexColor(input) {
@@ -243,6 +243,7 @@ async function handleCommand(interaction, refreshServerStats) {
     }
 
     updateGuild(targetGuild.id, updates);
+    if (typeof broadcastGuildsUpdate === 'function') broadcastGuildsUpdate();
 
     // Mescla updates no objeto targetGuild para os cards refletirem a nova TAG imediatamente
     Object.assign(targetGuild, updates);
@@ -1421,6 +1422,7 @@ async function handleCommand(interaction, refreshServerStats) {
       };
 
       addGuild(newGuildData);
+      if (typeof broadcastGuildsUpdate === 'function') broadcastGuildsUpdate();
       refreshServerStats(interaction.client).catch(() => {});
 
       await interaction.editReply(
@@ -1597,6 +1599,7 @@ async function handleCommand(interaction, refreshServerStats) {
 
       // 2. Remoção do Banco de Dados e Cache
       removeGuild(targetGuild.id);
+      if (typeof broadcastGuildsUpdate === 'function') broadcastGuildsUpdate();
       refreshServerStats(interaction.client).catch(() => {});
 
       // 3. Atualizar Painéis Públicos

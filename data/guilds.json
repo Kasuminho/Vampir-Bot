@@ -30,19 +30,20 @@
     "roleId": "1565431387480133652",
     "iconUrl": null,
     "leaderId": "1177008353927495710",
+    "callerIds": [],
     "createdAt": "2026-10-29T18:25:17.861Z",
     "categoryId": "1565431395331870791",
     "officerIds": [
       "341746889785344001",
       "458709154509488129",
-      "273600843251712020"
+      "273600843251712020",
+      "1539332550261080106"
     ],
     "description": "Legião oficial da comunidade Vampir.",
     "chatChannelId": "1565431397978480662",
     "approvalsChannelId": "1565431396749541486",
     "recruitmentMessageId": "1565435645856452789",
-    "attendanceValidationChannelId": "1569013282621104189",
-    "callerIds": []
+    "attendanceValidationChannelId": "1569013282621104189"
   },
   {
     "id": "guild_1793311847982",
@@ -52,6 +53,7 @@
     "roleId": "1565488154553880757",
     "iconUrl": null,
     "leaderId": "596480584923217931",
+    "callerIds": [],
     "createdAt": "2026-10-29T22:10:52.795Z",
     "categoryId": "1565488165173723216",
     "officerIds": [
@@ -61,8 +63,7 @@
     "chatChannelId": "1565488170190250059",
     "approvalsChannelId": "1565488167363018774",
     "recruitmentMessageId": "1565488307125624855",
-    "attendanceValidationChannelId": "1569013285481873482",
-    "callerIds": []
+    "attendanceValidationChannelId": "1569013285481873482"
   },
   {
     "id": "guild_1793380868692",
@@ -72,15 +73,15 @@
     "roleId": "1565777655377428591",
     "iconUrl": null,
     "leaderId": "267714539947032577",
+    "callerIds": [],
     "createdAt": "2026-10-30T17:21:15.116Z",
     "categoryId": "1565777669193474172",
+    "officerIds": [],
     "description": "Legião oficial da comunidade Vampir.",
     "chatChannelId": "1565777672829935677",
     "approvalsChannelId": "1565777671235960983",
     "recruitmentMessageId": "1565777841574903829",
-    "attendanceValidationChannelId": "1569013288761557228",
-    "officerIds": [],
-    "callerIds": []
+    "attendanceValidationChannelId": "1569013288761557228"
   },
   {
     "id": "guild_1793380952221",
@@ -90,15 +91,17 @@
     "roleId": "1565778005920448663",
     "iconUrl": null,
     "leaderId": "145149567023841280",
+    "callerIds": [],
     "createdAt": "2026-10-30T17:22:38.267Z",
     "categoryId": "1565778014888001548",
+    "officerIds": [
+      "164695169831010304"
+    ],
     "description": "Legião oficial da comunidade Vampir.",
     "chatChannelId": "1565778025818357960",
     "approvalsChannelId": "1565778024304082986",
     "recruitmentMessageId": "1565778187550457908",
-    "attendanceValidationChannelId": "1569013290674163842",
-    "officerIds": [],
-    "callerIds": []
+    "attendanceValidationChannelId": "1569013290674163842"
   },
   {
     "id": "guild_1793491314251",
@@ -107,19 +110,21 @@
     "color": "#9B59B6",
     "roleId": "1566240909857652849",
     "iconUrl": null,
-    "leaderId": "348987594241212428",
+    "leaderId": "365562127680798720",
     "callerIds": [
       "573572018629246986",
       "365562127680798720"
     ],
     "createdAt": "2026-11-01T00:01:59.860Z",
     "categoryId": "1566240919299035266",
+    "officerIds": [
+      "348987594241212428"
+    ],
     "description": "Legião oficial da comunidade Vampir.",
     "chatChannelId": "1566240924508627034",
     "approvalsChannelId": "1566240921165504585",
     "recruitmentMessageId": "1566241144315187291",
-    "attendanceValidationChannelId": "1569013300325257266",
-    "officerIds": []
+    "attendanceValidationChannelId": "1569013300325257266"
   },
   {
     "id": "guild_1793563308822",
@@ -128,35 +133,53 @@
     "color": "#9B59B6",
     "roleId": "1566542884327395458",
     "iconUrl": null,
-    "leaderId": "298230628116070411",
+    "leaderId": "309849117033627649",
+    "callerIds": [],
     "createdAt": "2026-11-01T20:01:53.480Z",
     "categoryId": "1566542892036792550",
     "officerIds": [
-      "309849117033627649"
+      "298230628116070411"
     ],
     "description": "Legião oficial da comunidade Vampir.",
     "chatChannelId": "1566542896797327616",
     "approvalsChannelId": "1566542894548910142",
     "recruitmentMessageId": "1566543137583669400",
-    "attendanceValidationChannelId": "1569013302133268522",
-    "callerIds": []
+    "attendanceValidationChannelId": "1569013302133268522"
   },
   {
-    "id": "guild_1794162213021",
-    "tag": "DIN",
-    "name": "Dinastia",
+    "id": "guild_1794451343717",
+    "tag": "SPF",
+    "name": "SempreFI",
     "color": "#9B59B6",
-    "roleId": "1569053812604276807",
+    "roleId": "1570267490276221049",
     "iconUrl": null,
-    "leaderId": "686215562673520640",
+    "leaderId": "335130097147314178",
     "callerIds": [],
-    "createdAt": "2026-11-08T18:23:33.021Z",
-    "categoryId": "1569053816421089310",
+    "createdAt": "2026-11-12T02:42:27.235Z",
+    "categoryId": "1570267496525725731",
     "officerIds": [],
     "description": "Legião oficial da comunidade Vampir.",
-    "chatChannelId": "1569053818333958165",
-    "approvalsChannelId": "1569053817310552164",
-    "recruitmentMessageId": "1569056968763772950",
-    "attendanceValidationChannelId": "1569054791181668353"
+    "chatChannelId": "1570267499054764122",
+    "approvalsChannelId": "1570267497880358963",
+    "recruitmentMessageId": "1570267660573347841",
+    "attendanceValidationChannelId": "1570267500237684828"
+  },
+  {
+    "id": "guild_1794761983152",
+    "tag": "TRANS",
+    "name": "Transilvânia",
+    "color": "#9B59B6",
+    "roleId": "1571570406496796712",
+    "iconUrl": null,
+    "leaderId": "365562127680798720",
+    "callerIds": [],
+    "createdAt": "2026-11-15T16:59:48.226Z",
+    "categoryId": "1571570409910837452",
+    "officerIds": [],
+    "description": "Legião oficial da comunidade Vampir.",
+    "chatChannelId": "1571570421587910686",
+    "approvalsChannelId": "1571570420510097508",
+    "recruitmentMessageId": "1571570606753849357",
+    "attendanceValidationChannelId": "1571570423609434277"
   }
 ]

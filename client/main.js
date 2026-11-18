@@ -103,13 +103,13 @@ function loadTargetPage(cfg) {
 }
 
 function registerGlobalHotkeys() {
-  // Numpad 0 -> Armar seleção de guilda (0 + 1-8 -> Guilda)
+  // Numpad 0 -> Dígito 0 / Armar seleção de guilda (0 + 1-9) / Enoch (00 ou *0)
   globalShortcut.register('num0', () => {
-    sendToRenderer('hotkey_guild_select_arm');
+    sendToRenderer('hotkey_numpad_0');
   });
 
-  // Numpad 1 to 8 -> Dígitos (Bosses 1 a 6 ou Guildas 1 a 8)
-  for (let i = 1; i <= 8; i++) {
+  // Numpad 1 to 9 -> Dígitos (Bosses 1 a 9 ou Guildas 1 a 9)
+  for (let i = 1; i <= 9; i++) {
     globalShortcut.register(`num${i}`, () => {
       sendToRenderer('hotkey_numpad_digit', i);
     });

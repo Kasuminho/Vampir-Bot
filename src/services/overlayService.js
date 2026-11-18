@@ -37,25 +37,71 @@ const TUNNEL_LOG_PATH = process.env.TUNNEL_LOG_PATH || '/shared/tunnel.log';
 let currentPublicUrl = process.env.PUBLIC_URL || `http://localhost:${PORT}`;
 let ioInstance = null;
 
+// Paleta tática vibrante para distinção rápida no mapa
+const TACTICAL_COLORS = [
+  '#f1c40f', // OLP - Dourado / Amarelo
+  '#e74c3c', // NOM - Vermelho
+  '#1abc9c', // NGF - Turquesa / Verde-água
+  '#3498db', // KTB - Azul
+  '#9b59b6', // AFT - Roxo
+  '#e67e22', // CHP - Laranja
+  '#e91e63', // FSN - Rosa
+  '#2ecc71', // SPF - Verde Esmeralda
+  '#00bcd4', // TRANS - Ciano
+  '#ff5722', // Laranja Escuro
+  '#8e44ad', // Roxo Profundo
+  '#16a085'  // Jade
+];
+
+function getTacticalGuilds() {
+  const registered = getGuilds();
+  return registered.map((g, idx) => ({
+    id: g.tag,
+    tag: g.tag,
+    name: `[${g.tag}] ${g.name}`,
+    color: (g.color && g.color.toLowerCase() !== '#9b59b6') ? g.color : TACTICAL_COLORS[idx % TACTICAL_COLORS.length]
+  }));
+}
+
 // --- ESTADO INICIAL DA GUERRA ---
 let battleState = {
-  activeMap: 1, // 1 ou 2
+  activeMap: 1, // 1: Geena 2, 2: Geena 1 Inferior
   assignments: {},
   combatModes: {}, // { guildId: 'BOSS' | 'PVP' }
   deadBosses: {}, // { bossId: timestamp }
   callGeral: null // { bossId, bossName, author }
 };
 
-// Carrega as tags das guildas
+// Carrega as tags das guildas dinamicamente da base
 function initGuildAssignments() {
   const guilds = getGuilds();
-  for (const g of guilds) {
-    if (g.tag && !(g.tag in battleState.assignments)) {
-      battleState.assignments[g.tag] = null;
+  const currentTags = new Set(guilds.map(g => g.tag).filter(Boolean));
+
+  // Remove guildas que saíram da coalizão
+  for (const tag of Object.keys(battleState.assignments)) {
+    if (!currentTags.has(tag)) {
+      delete battleState.assignments[tag];
+      delete battleState.combatModes[tag];
+    }
+  }
+
+  // Registra novas guildas
+  for (const tag of currentTags) {
+    if (!(tag in battleState.assignments)) {
+      battleState.assignments[tag] = null;
     }
   }
 }
 initGuildAssignments();
+
+function broadcastGuildsUpdate() {
+  if (!ioInstance) return;
+  initGuildAssignments();
+  ioInstance.emit('guilds_updated', {
+    guilds: getTacticalGuilds(),
+    assignments: battleState.assignments
+  });
+}
 
 // --- DETECTOR DINÂMICO DE URL DO CLOUDFLARE TUNNEL ---
 function readTunnelUrlFromLog() {
@@ -306,9 +352,10 @@ function startOverlayService(client) {
   io.on('connection', socket => {
     console.log(`🔌 [OVERLAY WS] Conectado: ${socket.user.username} (${socket.user.guildId || 'Coalizão'})`);
 
-    // Sincroniza estado inicial
+    // Sincroniza estado inicial com lista dinâmica de guildas e cores táticas
     socket.emit('init_state', {
       battleState,
+      guilds: getTacticalGuilds(),
       user: socket.user
     });
 
@@ -324,7 +371,7 @@ function startOverlayService(client) {
       const canManage = socket.user.canCallGeneral || (socket.user.canCallGuild && socket.user.guildId === guildId);
       if (!canManage) return socket.emit('error_msg', 'Sem permissão para esta guilda.');
 
-      const targetMap = mapId || (bossId >= 4 ? 2 : battleState.activeMap);
+      const targetMap = mapId || battleState.activeMap || 1;
       battleState.assignments[guildId] = { bossId, mapId: targetMap };
 
       io.emit('state_updated', {
@@ -356,7 +403,7 @@ function startOverlayService(client) {
     socket.on('trigger_call_geral', ({ bossId, bossName, mapId }) => {
       if (!socket.user.canCallGeneral) return socket.emit('error_msg', 'Apenas Comandantes podem dar Call Geral.');
 
-      const targetMap = mapId || (bossId >= 4 ? 2 : battleState.activeMap);
+      const targetMap = mapId || battleState.activeMap || 1;
       Object.keys(battleState.assignments).forEach(g => {
         battleState.assignments[g] = { bossId, mapId: targetMap };
       });
@@ -427,7 +474,7 @@ function startOverlayService(client) {
 }
 
 function executeCommandCall({ guildTag, bossId, mapId, author }) {
-  const targetMap = mapId || (bossId >= 4 ? 2 : battleState.activeMap);
+  const targetMap = mapId || battleState.activeMap || 1;
 
   if (guildTag === 'ALL') {
     Object.keys(battleState.assignments).forEach(g => {
@@ -459,5 +506,7 @@ module.exports = {
   createAuthResponse,
   renderOverlayPanel,
   executeCommandCall,
-  evaluateMemberPermissions
+  evaluateMemberPermissions,
+  broadcastGuildsUpdate,
+  getTacticalGuilds
 };
