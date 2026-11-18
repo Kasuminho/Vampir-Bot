@@ -407,38 +407,40 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('call')
-    .setDescription('Aloca uma guilda ou toda a coalizão para um Boss específico')
+    .setDescription('Aloca uma guilda, um servidor (Rust 1/2) ou toda a coalizão para um Boss específico')
     .addStringOption(opt =>
       opt.setName('guilda')
-        .setDescription('Tag da Guilda (ou TODAS para Call Geral)')
+        .setDescription('Alvo da Call (Guilda individual, Servidor ou TODAS)')
         .setRequired(true)
         .addChoices(
-          { name: '👑 TODAS AS GUILDAS (Call Geral)', value: 'ALL' },
-          { name: '🏰 [TRANS] Transilvânia', value: 'TRANS' },
-          { name: '🏰 [NOM] No Mercy', value: 'NOM' },
-          { name: '🏰 [OLP] OLIMPO', value: 'OLP' },
-          { name: '🏰 [NGF] NightFall', value: 'NGF' },
-          { name: '🏰 [KTB] Kontrabandz', value: 'KTB' },
-          { name: '🏰 [AFT] Aftermath', value: 'AFT' },
-          { name: '🏰 [CHP] CHAPA1', value: 'CHP' },
-          { name: '🏰 [FSN] Fusion', value: 'FSN' },
-          { name: '🏰 [SPF] SempreFI', value: 'SPF' }
+          { name: '👑 TODAS AS GUILDAS (Call Geral ALL-IN)', value: 'ALL' },
+          { name: '🛡️ RUST 1 (CHP, SPF, TRANS)', value: 'RUST1' },
+          { name: '⚔️ RUST 2 (OLP, NOM, NGF, KTB, AFT, FSN)', value: 'RUST2' },
+          { name: '🏰 [CHP] CHAPA1 (Rust 1)', value: 'CHP' },
+          { name: '🏰 [SPF] SempreFI (Rust 1)', value: 'SPF' },
+          { name: '🏰 [TRANS] Transilvânia (Rust 1)', value: 'TRANS' },
+          { name: '🏰 [OLP] OLIMPO (Rust 2)', value: 'OLP' },
+          { name: '🏰 [NOM] No Mercy (Rust 2)', value: 'NOM' },
+          { name: '🏰 [NGF] NightFall (Rust 2)', value: 'NGF' },
+          { name: '🏰 [KTB] Kontrabandz (Rust 2)', value: 'KTB' },
+          { name: '🏰 [AFT] Aftermath (Rust 2)', value: 'AFT' },
+          { name: '🏰 [FSN] Fusion (Rust 2)', value: 'FSN' }
         )
     )
     .addIntegerOption(opt =>
       opt.setName('boss')
-        .setDescription('Número do Boss (1 a 6)')
+        .setDescription('Número do Boss (1 a 9, ou 0 para Lorde Enoch)')
         .setRequired(true)
-        .setMinValue(1)
-        .setMaxValue(6)
+        .setMinValue(0)
+        .setMaxValue(9)
     )
     .addIntegerOption(opt =>
       opt.setName('mapa')
-        .setDescription('Qual mapa / andar (1 ou 2)')
+        .setDescription('Qual mapa / setor (1: Geena 2 ou 2: Geena 1 Inferior)')
         .setRequired(false)
         .addChoices(
-          { name: 'Andar 1 (Mapa 1: 3 Bosses)', value: 1 },
-          { name: 'Andar 2 (Mapa 2: 6 Bosses)', value: 2 }
+          { name: 'Mapa 1 (Geena 2: 10 Bosses)', value: 1 },
+          { name: 'Mapa 2 (Geena 1 Inferior: 6 Bosses)', value: 2 }
         )
     ),
 

@@ -59,6 +59,7 @@ function getTacticalGuilds() {
     id: g.tag,
     tag: g.tag,
     name: `[${g.tag}] ${g.name}`,
+    server: g.server || (['CHP', 'SPF', 'TRANS'].includes(g.tag) ? 'Rust 1' : 'Rust 2'),
     color: (g.color && g.color.toLowerCase() !== '#9b59b6') ? g.color : TACTICAL_COLORS[idx % TACTICAL_COLORS.length]
   }));
 }
@@ -69,7 +70,11 @@ let battleState = {
   assignments: {},
   combatModes: {}, // { guildId: 'BOSS' | 'PVP' }
   deadBosses: {}, // { bossId: timestamp }
-  callGeral: null // { bossId, bossName, author }
+  callGeral: null, // { bossId, bossName, author }
+  serverCalls: {
+    rust1: null, // { bossId, bossName, mapId, author, timestamp }
+    rust2: null  // { bossId, bossName, mapId, author, timestamp }
+  }
 };
 
 // Carrega as tags das guildas dinamicamente da base
@@ -404,14 +409,21 @@ function startOverlayService(client) {
       if (!socket.user.canCallGeneral) return socket.emit('error_msg', 'Apenas Comandantes podem dar Call Geral.');
 
       const targetMap = mapId || battleState.activeMap || 1;
+      const bName = bossName || (bossId === 0 ? 'Lorde Enoch' : `Boss ${bossId}`);
       Object.keys(battleState.assignments).forEach(g => {
         battleState.assignments[g] = { bossId, mapId: targetMap };
       });
 
-      battleState.callGeral = { bossId, bossName, mapId: targetMap, author: socket.user.username };
+      battleState.callGeral = { bossId, bossName: bName, mapId: targetMap, author: socket.user.username };
+      battleState.serverCalls.rust1 = { server: 'RUST 1', bossId, bossName: bName, mapId: targetMap, author: socket.user.username, timestamp: Date.now() };
+      battleState.serverCalls.rust2 = { server: 'RUST 2', bossId, bossName: bName, mapId: targetMap, author: socket.user.username, timestamp: Date.now() };
 
       io.emit('call_geral_active', {
         callGeral: battleState.callGeral,
+        assignments: battleState.assignments
+      });
+      io.emit('server_call_updated', {
+        serverCalls: battleState.serverCalls,
         assignments: battleState.assignments
       });
     });
@@ -421,6 +433,59 @@ function startOverlayService(client) {
       if (!socket.user.canCallGeneral) return;
       battleState.callGeral = null;
       io.emit('call_geral_cleared');
+    });
+
+    // Call de Servidor (Rust 1 ou Rust 2)
+    socket.on('set_server_call', ({ server, bossId, bossName, mapId }) => {
+      if (!socket.user.canCallGeneral) return socket.emit('error_msg', 'Apenas Comandantes podem emitir Call de Servidor.');
+
+      const targetMap = mapId || battleState.activeMap || 1;
+      const serverKey = server.toLowerCase().includes('1') ? 'rust1' : 'rust2';
+      const serverLabel = serverKey === 'rust1' ? 'RUST 1' : 'RUST 2';
+      const targetGuilds = serverKey === 'rust1' ? ['CHP', 'SPF', 'TRANS'] : ['OLP', 'NOM', 'NGF', 'KTB', 'AFT', 'FSN'];
+      const bName = bossName || (bossId === 0 ? 'Lorde Enoch' : `Boss ${bossId}`);
+
+      battleState.serverCalls[serverKey] = {
+        server: serverLabel,
+        bossId,
+        bossName: bName,
+        mapId: targetMap,
+        author: socket.user.username,
+        timestamp: Date.now()
+      };
+
+      // Aloca todas as guildas daquele servidor
+      targetGuilds.forEach(gTag => {
+        if (gTag in battleState.assignments) {
+          battleState.assignments[gTag] = { bossId, mapId: targetMap };
+        }
+      });
+
+      io.emit('server_call_updated', {
+        serverKey,
+        call: battleState.serverCalls[serverKey],
+        serverCalls: battleState.serverCalls,
+        assignments: battleState.assignments
+      });
+
+      io.emit('state_updated', {
+        assignments: battleState.assignments,
+        combatModes: battleState.combatModes,
+        action: `🚨 [${serverLabel}] direcionado para ${bossId === 0 ? 'Lorde Enoch' : 'Boss ' + bossId} por ${socket.user.username}`
+      });
+    });
+
+    // Limpar Call de Servidor
+    socket.on('clear_server_call', ({ server }) => {
+      if (!socket.user.canCallGeneral) return;
+      const serverKey = server.toLowerCase().includes('1') ? 'rust1' : 'rust2';
+      const serverLabel = serverKey === 'rust1' ? 'RUST 1' : 'RUST 2';
+      battleState.serverCalls[serverKey] = null;
+
+      io.emit('server_call_cleared', {
+        serverKey,
+        serverCalls: battleState.serverCalls
+      });
     });
 
     // Marcar Boss Morto
@@ -459,6 +524,7 @@ function startOverlayService(client) {
       if (!socket.user.canCallGeneral) return;
       Object.keys(battleState.assignments).forEach(g => battleState.assignments[g] = null);
       battleState.callGeral = null;
+      battleState.serverCalls = { rust1: null, rust2: null };
       battleState.deadBosses = {};
       io.emit('state_reset', battleState);
     });
@@ -475,19 +541,70 @@ function startOverlayService(client) {
 
 function executeCommandCall({ guildTag, bossId, mapId, author }) {
   const targetMap = mapId || battleState.activeMap || 1;
+  const bName = bossId === 0 ? 'Lorde Enoch' : `Boss ${bossId}`;
 
   if (guildTag === 'ALL') {
     Object.keys(battleState.assignments).forEach(g => {
       battleState.assignments[g] = { bossId, mapId: targetMap };
     });
-    battleState.callGeral = { bossId, bossName: `Boss ${bossId}`, mapId: targetMap, author };
+    battleState.callGeral = { bossId, bossName: bName, mapId: targetMap, author };
+    battleState.serverCalls.rust1 = { server: 'RUST 1', bossId, bossName: bName, mapId: targetMap, author, timestamp: Date.now() };
+    battleState.serverCalls.rust2 = { server: 'RUST 2', bossId, bossName: bName, mapId: targetMap, author, timestamp: Date.now() };
     if (ioInstance) {
       ioInstance.emit('call_geral_active', {
         callGeral: battleState.callGeral,
         assignments: battleState.assignments
       });
+      ioInstance.emit('server_call_updated', {
+        serverCalls: battleState.serverCalls,
+        assignments: battleState.assignments
+      });
     }
-    return `🚨 **Call Geral Disparada:** Todas as guildas para o Boss ${bossId} (Mapa ${targetMap}) por **${author}**!`;
+    return `🚨 **Call Geral Disparada:** Todas as guildas para ${bossId === 0 ? 'Lorde Enoch' : 'o Boss ' + bossId} (Mapa ${targetMap}) por **${author}**!`;
+  }
+
+  if (guildTag === 'RUST1' || guildTag === 'RUST 1') {
+    const rust1Guilds = ['CHP', 'SPF', 'TRANS'];
+    battleState.serverCalls.rust1 = { server: 'RUST 1', bossId, bossName: bName, mapId: targetMap, author, timestamp: Date.now() };
+    rust1Guilds.forEach(g => {
+      if (g in battleState.assignments) battleState.assignments[g] = { bossId, mapId: targetMap };
+    });
+    if (ioInstance) {
+      ioInstance.emit('server_call_updated', {
+        serverKey: 'rust1',
+        call: battleState.serverCalls.rust1,
+        serverCalls: battleState.serverCalls,
+        assignments: battleState.assignments
+      });
+      ioInstance.emit('state_updated', {
+        assignments: battleState.assignments,
+        combatModes: battleState.combatModes,
+        action: `🚨 [RUST 1] Convocado para ${bossId === 0 ? 'Lorde Enoch' : 'Boss ' + bossId} por ${author}`
+      });
+    }
+    return `🛡️ **Call RUST 1 Registrada:** Guildas de Rust 1 (\`CHP\`, \`SPF\`, \`TRANS\`) direcionadas para ${bossId === 0 ? 'Lorde Enoch' : 'o Boss ' + bossId} (Mapa ${targetMap})!`;
+  }
+
+  if (guildTag === 'RUST2' || guildTag === 'RUST 2') {
+    const rust2Guilds = ['OLP', 'NOM', 'NGF', 'KTB', 'AFT', 'FSN'];
+    battleState.serverCalls.rust2 = { server: 'RUST 2', bossId, bossName: bName, mapId: targetMap, author, timestamp: Date.now() };
+    rust2Guilds.forEach(g => {
+      if (g in battleState.assignments) battleState.assignments[g] = { bossId, mapId: targetMap };
+    });
+    if (ioInstance) {
+      ioInstance.emit('server_call_updated', {
+        serverKey: 'rust2',
+        call: battleState.serverCalls.rust2,
+        serverCalls: battleState.serverCalls,
+        assignments: battleState.assignments
+      });
+      ioInstance.emit('state_updated', {
+        assignments: battleState.assignments,
+        combatModes: battleState.combatModes,
+        action: `⚔️ [RUST 2] Convocado para ${bossId === 0 ? 'Lorde Enoch' : 'Boss ' + bossId} por ${author}`
+      });
+    }
+    return `⚔️ **Call RUST 2 Registrada:** Guildas de Rust 2 (\`OLP\`, \`NOM\`, \`NGF\`, \`KTB\`, \`AFT\`, \`FSN\`) direcionadas para ${bossId === 0 ? 'Lorde Enoch' : 'o Boss ' + bossId} (Mapa ${targetMap})!`;
   }
 
   battleState.assignments[guildTag] = { bossId, mapId: targetMap };
@@ -495,10 +612,10 @@ function executeCommandCall({ guildTag, bossId, mapId, author }) {
     ioInstance.emit('state_updated', {
       assignments: battleState.assignments,
       combatModes: battleState.combatModes,
-      action: `[${guildTag}] Call enviada por ${author} ➔ Boss ${bossId} (Mapa ${targetMap})`
+      action: `[${guildTag}] Call enviada por ${author} ➔ ${bossId === 0 ? 'Lorde Enoch' : 'Boss ' + bossId} (Mapa ${targetMap})`
     });
   }
-  return `✅ **Call Registrada:** Guilda \`[${guildTag}]\` direcionada para o Boss ${bossId} (Mapa ${targetMap})!`;
+  return `✅ **Call Registrada:** Guilda \`[${guildTag}]\` direcionada para ${bossId === 0 ? 'Lorde Enoch' : 'o Boss ' + bossId} (Mapa ${targetMap})!`;
 }
 
 module.exports = {

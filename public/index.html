@@ -92,6 +92,37 @@
     </div>
   </div>
 
+  <!-- DUAL SERVER CALL STATUS BANNER (RUST 1 & RUST 2) -->
+  <div id="serverCallsBanner" class="max-w-7xl mx-auto mb-3 bg-slate-900/90 border border-slate-800 rounded-2xl p-2.5 shadow-xl flex flex-wrap items-center justify-between gap-2.5">
+    <div class="flex flex-wrap items-center gap-3">
+      <!-- Rust 1 Indicator -->
+      <div id="rust1CallIndicator" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-950/80 border border-blue-700/70 text-xs font-mono shadow">
+        <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse"></span>
+        <span class="font-black text-cyan-300 tracking-wide uppercase">🛡️ RUST 1:</span>
+        <span id="rust1CallText" class="text-slate-300 font-bold">Aguardando call...</span>
+        <button id="btnClearRust1Call" onclick="clearServerCall('rust1')" class="hidden text-slate-400 hover:text-red-400 ml-1 font-bold text-xs" title="Dispersar Rust 1">✕</button>
+      </div>
+
+      <!-- Rust 2 Indicator -->
+      <div id="rust2CallIndicator" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-950/80 border border-amber-700/70 text-xs font-mono shadow">
+        <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
+        <span class="font-black text-amber-300 tracking-wide uppercase">⚔️ RUST 2:</span>
+        <span id="rust2CallText" class="text-slate-300 font-bold">Aguardando call...</span>
+        <button id="btnClearRust2Call" onclick="clearServerCall('rust2')" class="hidden text-slate-400 hover:text-red-400 ml-1 font-bold text-xs" title="Dispersar Rust 2">✕</button>
+      </div>
+    </div>
+
+    <!-- Quick Server Call Dispatch Buttons (Comandante de Guerra) -->
+    <div id="commanderServerCallButtons" class="hidden items-center gap-2">
+      <button onclick="armServerCall('rust1')" class="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs uppercase tracking-wider shadow-lg transition-all flex items-center gap-1.5 border border-blue-400 active:scale-95">
+        <span>🛡️ Mandar RUST 1</span>
+      </button>
+      <button onclick="armServerCall('rust2')" class="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-black text-xs uppercase tracking-wider shadow-lg transition-all flex items-center gap-1.5 border border-amber-400 active:scale-95">
+        <span>⚔️ Mandar RUST 2</span>
+      </button>
+    </div>
+  </div>
+
   <!-- EMERGENCY CALL GERAL BANNER -->
   <div id="callGeralBanner" class="hidden max-w-7xl mx-auto mb-4 bg-gradient-to-r from-red-600/90 via-amber-600/90 to-red-600/90 border-2 border-red-400 rounded-2xl p-3 shadow-[0_0_30px_rgba(239,68,68,0.5)] flex items-center justify-between animate-siren">
     <div class="flex items-center gap-3">
@@ -194,6 +225,18 @@
             <button id="btnReset" onclick="requestReset()" class="hidden text-[11px] text-red-400 hover:underline">Reset Geral</button>
           </div>
 
+          <!-- Fast Server Selection Cards (Comandante) -->
+          <div id="serverCardsContainer" class="grid grid-cols-2 gap-2 mb-2.5">
+            <div id="cardRust1" onclick="armServerCall('rust1')" class="p-2 rounded-xl border border-blue-800/60 bg-blue-950/40 hover:bg-blue-900/50 cursor-pointer transition-all flex flex-col items-center shadow-md">
+              <span class="text-xs font-black text-cyan-300">🛡️ RUST 1 (3G)</span>
+              <span class="text-[9px] text-slate-400 font-mono">CHP • SPF • TRANS</span>
+            </div>
+            <div id="cardRust2" onclick="armServerCall('rust2')" class="p-2 rounded-xl border border-amber-800/60 bg-amber-950/40 hover:bg-amber-900/50 cursor-pointer transition-all flex flex-col items-center shadow-md">
+              <span class="text-xs font-black text-amber-300">⚔️ RUST 2 (6G)</span>
+              <span class="text-[9px] text-slate-400 font-mono">OLP • NOM • NGF +3</span>
+            </div>
+          </div>
+
           <div id="guildAssignmentsList" class="space-y-1.5 max-h-56 overflow-y-auto pr-1">
             <!-- Dynamically populated -->
           </div>
@@ -282,12 +325,77 @@
     let combatModes = {};
     let deadBosses = {};
     let callGeral = null;
+    let serverCalls = { rust1: null, rust2: null };
+    let selectedServerForDispatch = null;
     let activePings = [];
     let isCallGeralPrimed = false;
     let selectedGuildForDispatch = null;
     let inputBuffer = "";
     let isOverlayMode = false;
     let audioEnabled = true;
+
+    // --- DUAL SERVER CALL LOGIC (RUST 1 & RUST 2) ---
+    function armServerCall(server) {
+      if (!currentUser || !currentUser.canCallGeneral) {
+        logEvent('⚠️ Apenas o Comandante de Guerra pode convocar servidores.');
+        return;
+      }
+      selectedGuildForDispatch = null;
+      selectedServerForDispatch = (selectedServerForDispatch === server) ? null : server;
+      playCallSound();
+      const sLabel = server === 'rust1' ? 'RUST 1' : 'RUST 2';
+      const numBuffer = document.getElementById('numpadBuffer');
+      if (selectedServerForDispatch) {
+        if (numBuffer) numBuffer.innerText = `[${sLabel}] > BOSS...`;
+        logEvent(`🎯 [${sLabel}] selecionado. Digite 1-9 (0=Enoch) ou clique no Boss no mapa!`);
+      } else {
+        if (numBuffer) numBuffer.innerText = '---';
+      }
+      updateServerCallsUI();
+      if (typeof renderGuildList === 'function') renderGuildList();
+    }
+
+    function clearServerCall(server) {
+      if (!currentUser || !currentUser.canCallGeneral) return;
+      socket.emit('clear_server_call', { server });
+    }
+
+    function updateServerCallsUI() {
+      const r1Ind = document.getElementById('rust1CallText');
+      const r2Ind = document.getElementById('rust2CallText');
+      const btnClr1 = document.getElementById('btnClearRust1Call');
+      const btnClr2 = document.getElementById('btnClearRust2Call');
+      const cmdBtns = document.getElementById('commanderServerCallButtons');
+
+      if (cmdBtns && currentUser && currentUser.canCallGeneral) {
+        cmdBtns.classList.remove('hidden');
+        cmdBtns.classList.add('flex');
+      }
+
+      const bossesMap = (MAP_DATA[currentMapId] || MAP_DATA[1]).bosses;
+
+      // Rust 1 Call
+      if (serverCalls && serverCalls.rust1 && serverCalls.rust1.bossId !== undefined && serverCalls.rust1.bossId !== null) {
+        const b = bossesMap.find(x => x.id === serverCalls.rust1.bossId) || { name: `Boss ${serverCalls.rust1.bossId}` };
+        const bLabel = serverCalls.rust1.bossId === 0 ? 'ENOCH (C)' : `B${serverCalls.rust1.bossId} (${b.name})`;
+        if (r1Ind) r1Ind.innerHTML = `<span class="text-cyan-400 font-bold">${bLabel}</span> [M${serverCalls.rust1.mapId || 1}]`;
+        if (btnClr1 && currentUser && currentUser.canCallGeneral) btnClr1.classList.remove('hidden');
+      } else {
+        if (r1Ind) r1Ind.innerHTML = '<span class="text-slate-500 italic">Aguardando call...</span>';
+        if (btnClr1) btnClr1.classList.add('hidden');
+      }
+
+      // Rust 2 Call
+      if (serverCalls && serverCalls.rust2 && serverCalls.rust2.bossId !== undefined && serverCalls.rust2.bossId !== null) {
+        const b = bossesMap.find(x => x.id === serverCalls.rust2.bossId) || { name: `Boss ${serverCalls.rust2.bossId}` };
+        const bLabel = serverCalls.rust2.bossId === 0 ? 'ENOCH (C)' : `B${serverCalls.rust2.bossId} (${b.name})`;
+        if (r2Ind) r2Ind.innerHTML = `<span class="text-amber-400 font-bold">${bLabel}</span> [M${serverCalls.rust2.mapId || 1}]`;
+        if (btnClr2 && currentUser && currentUser.canCallGeneral) btnClr2.classList.remove('hidden');
+      } else {
+        if (r2Ind) r2Ind.innerHTML = '<span class="text-slate-500 italic">Aguardando call...</span>';
+        if (btnClr2) btnClr2.classList.add('hidden');
+      }
+    }
 
     // --- AUDIO SYNTHESIS ---
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -465,8 +573,10 @@
       combatModes = data.battleState.combatModes || {};
       deadBosses = data.battleState.deadBosses || {};
       callGeral = data.battleState.callGeral;
+      serverCalls = data.battleState.serverCalls || { rust1: null, rust2: null };
 
       if (data.guilds) applyDynamicGuilds(data.guilds);
+      updateServerCallsUI();
 
       document.getElementById('statusDot').className = 'w-3.5 h-3.5 rounded-full bg-emerald-500';
       document.getElementById('userBadge').innerHTML = `
@@ -484,6 +594,20 @@
       applyMapSwitch(currentMapId);
       if (callGeral) applyCallGeral(callGeral);
       applyZoom(currentZoom);
+      renderAll();
+    });
+
+    socket.on('server_call_updated', (data) => {
+      serverCalls = data.serverCalls;
+      if (data.assignments) assignments = data.assignments;
+      updateServerCallsUI();
+      playCallSound();
+      renderAll();
+    });
+
+    socket.on('server_call_cleared', (data) => {
+      serverCalls = data.serverCalls;
+      updateServerCallsUI();
       renderAll();
     });
 
@@ -550,11 +674,13 @@
       deadBosses = state.deadBosses;
       combatModes = {};
       callGeral = null;
+      serverCalls = { rust1: null, rust2: null };
       activePings = [];
+      updateServerCallsUI();
       document.getElementById('callGeralBanner').classList.add('hidden');
       logEvent('🔄 Estado da guerra resetado.');
       applyZoom(currentZoom);
-    renderAll();
+      renderAll();
     });
 
     socket.on('error_msg', (msg) => {
@@ -698,10 +824,12 @@
       if (currentUser && (currentUser.canCallGeneral || currentUser.canCallGuild)) {
         selectedGuildForDispatch = (selectedGuildForDispatch === guildId) ? null : guildId;
         if (selectedGuildForDispatch) {
+          selectedServerForDispatch = null;
           playCallSound();
           logEvent(`🎯 Guilda [${selectedGuildForDispatch}] selecionada. Clique no Boss para alocar.`);
         }
-        renderDispatchList();
+        updateServerCallsUI();
+        renderGuildList();
       }
     }
 
@@ -757,7 +885,27 @@
         return;
       }
 
-      // 2. Alocar guilda selecionada ou a própria guilda
+      // 2. Se uma Call de Servidor (Rust 1 ou Rust 2) estiver selecionada:
+      if (selectedServerForDispatch) {
+        const srv = selectedServerForDispatch;
+        selectedServerForDispatch = null;
+        if (socket && currentUser && currentUser.canCallGeneral) {
+          socket.emit('set_server_call', {
+            server: srv,
+            bossId: boss.id,
+            bossName: boss.name,
+            mapId: currentMapId
+          });
+          playCallSound();
+          logEvent(`🚨 [${srv === 'rust1' ? 'RUST 1' : 'RUST 2'}] DIRECIONADO PARA ${boss.id === 0 ? 'ENOCH (C)' : 'BOSS ' + boss.id} (${boss.name})!`);
+        }
+        clearBuffer();
+        updateServerCallsUI();
+        if (typeof renderGuildList === 'function') renderGuildList();
+        return;
+      }
+
+      // 3. Alocar guilda selecionada ou a própria guilda
       const guildToAssign = selectedGuildForDispatch || (currentUser ? currentUser.guildId : null) || Object.keys(GUILDS)[0] || 'NOM';
       if (socket && currentUser) {
         socket.emit('set_guild_call', { guildId: guildToAssign, bossId: boss.id, mapId: currentMapId });
@@ -932,9 +1080,11 @@
         toggleCombatMode();
       } else if (key === 'Escape' || key === 'Backspace') {
         selectedGuildForDispatch = null;
+        selectedServerForDispatch = null;
         isCallGeralPrimed = false;
         isGuildSelectArmed = false;
         clearBuffer();
+        updateServerCallsUI();
         renderGuildList();
         const banner = document.getElementById('callGeralBanner');
         if (!callGeral) {
@@ -967,6 +1117,31 @@
         });
         const hasAssignment = assignedGuildKeys.length > 0;
         const isDead = deadBosses[boss.id] && deadBosses[boss.id] > Date.now();
+
+        // Server calls for this boss on current map
+        const isRust1Call = serverCalls && serverCalls.rust1 && serverCalls.rust1.bossId === boss.id && (serverCalls.rust1.mapId || 1) === currentMapId;
+        const isRust2Call = serverCalls && serverCalls.rust2 && serverCalls.rust2.bossId === boss.id && (serverCalls.rust2.mapId || 1) === currentMapId;
+
+        let serverBadges = '';
+        if (isRust1Call && isRust2Call) {
+          serverBadges = `
+            <div class="mb-1 px-2.5 py-0.5 rounded-md bg-gradient-to-r from-red-600 via-amber-500 to-red-600 text-black font-black text-[10px] tracking-wider uppercase shadow-xl animate-pulse flex items-center gap-1 border border-amber-300 whitespace-nowrap">
+              <span>🔥 ALL-IN (R1 + R2)</span>
+            </div>
+          `;
+        } else if (isRust1Call) {
+          serverBadges = `
+            <div class="mb-1 px-2 py-0.5 rounded-md bg-blue-600 text-white font-black text-[9px] tracking-wider uppercase shadow-lg flex items-center gap-1 border border-blue-400 whitespace-nowrap animate-pulse">
+              <span>🛡️ RUST 1</span>
+            </div>
+          `;
+        } else if (isRust2Call) {
+          serverBadges = `
+            <div class="mb-1 px-2 py-0.5 rounded-md bg-amber-600 text-white font-black text-[9px] tracking-wider uppercase shadow-lg flex items-center gap-1 border border-amber-400 whitespace-nowrap animate-pulse">
+              <span>⚔️ RUST 2</span>
+            </div>
+          `;
+        }
 
         const node = document.createElement('div');
         node.className = 'boss-node absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-auto cursor-pointer transition-all duration-200 z-20';
@@ -1028,6 +1203,7 @@
         node.innerHTML = `
           <div class="flex flex-col items-center group" onclick="event.stopPropagation(); executeBossCall(${boss.id});">
             <div class="flex flex-col items-center mb-1">
+              ${serverBadges}
               ${badgeBadges}
             </div>
 
@@ -1049,6 +1225,24 @@
     function renderGuildList() {
       const container = document.getElementById('guildAssignmentsList');
       container.innerHTML = '';
+
+      // Highlight server dispatch cards if selected
+      const cR1 = document.getElementById('cardRust1');
+      const cR2 = document.getElementById('cardRust2');
+      if (cR1) {
+        if (selectedServerForDispatch === 'rust1') {
+          cR1.className = 'p-2 rounded-xl border-2 border-cyan-400 bg-blue-900/80 cursor-pointer transition-all flex flex-col items-center shadow-lg ring-2 ring-cyan-400/50 scale-[1.02]';
+        } else {
+          cR1.className = 'p-2 rounded-xl border border-blue-800/60 bg-blue-950/40 hover:bg-blue-900/50 cursor-pointer transition-all flex flex-col items-center shadow-md';
+        }
+      }
+      if (cR2) {
+        if (selectedServerForDispatch === 'rust2') {
+          cR2.className = 'p-2 rounded-xl border-2 border-amber-400 bg-amber-900/80 cursor-pointer transition-all flex flex-col items-center shadow-lg ring-2 ring-amber-400/50 scale-[1.02]';
+        } else {
+          cR2.className = 'p-2 rounded-xl border border-amber-800/60 bg-amber-950/40 hover:bg-amber-900/50 cursor-pointer transition-all flex flex-col items-center shadow-md';
+        }
+      }
 
       const bosses = MAP_DATA[currentMapId].bosses;
 
@@ -1082,9 +1276,14 @@
         const numKey = Object.keys(GUILD_NUM_MAP).find(k => GUILD_NUM_MAP[k] === guild.id);
         const hotkeyBadge = numKey ? `<kbd class="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-[10px] text-amber-400 font-bold font-mono shadow">0${numKey}</kbd>` : '';
 
+        const srvTag = (guild.server === 'Rust 1' || guild.server === 'rust1')
+          ? `<span class="px-1 py-0.2 rounded text-[8px] font-black uppercase text-cyan-300 bg-blue-950/80 border border-blue-700/60">R1</span>`
+          : `<span class="px-1 py-0.2 rounded text-[8px] font-black uppercase text-amber-300 bg-amber-950/80 border border-amber-700/60">R2</span>`;
+
         row.innerHTML = `
           <div class="flex items-center gap-2">
             ${hotkeyBadge}
+            ${srvTag}
             <span class="w-2.5 h-2.5 rounded-full shadow-sm" style="background-color: ${guild.color}"></span>
             <span class="font-bold text-slate-300 text-[11px]">${guild.name}</span>
           </div>
