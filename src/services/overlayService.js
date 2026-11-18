@@ -488,22 +488,47 @@ function startOverlayService(client) {
       });
     });
 
-    // Marcar Boss Morto
-    socket.on('mark_boss_dead', ({ bossId, respawnSeconds }) => {
+    // Marcar Boss Morto (isolado por mapa e boss)
+    socket.on('mark_boss_dead', ({ bossId, mapId, respawnSeconds }) => {
       if (!socket.user.canCallGuild && !socket.user.canCallGeneral) return;
 
-      const respawnTime = Date.now() + (respawnSeconds || 15 * 60 + 31) * 1000;
-      battleState.deadBosses[bossId] = respawnTime;
+      const parsedBossId = (typeof bossId === 'object' && bossId !== null) ? bossId.bossId : parseInt(bossId, 10);
+      const targetMapId = (typeof bossId === 'object' && bossId !== null && bossId.mapId)
+        ? bossId.mapId
+        : (mapId ? parseInt(mapId, 10) : (battleState.activeMap || 1));
 
+      if (isNaN(parsedBossId)) return;
+
+      const deadKey = `${targetMapId}_${parsedBossId}`;
+      const respawnTime = Date.now() + (respawnSeconds || 15 * 60 + 31) * 1000;
+      battleState.deadBosses[deadKey] = respawnTime;
+
+      // Desaloca apenas as guildas direcionadas para esse boss no mapa específico
       Object.keys(battleState.assignments).forEach(g => {
         const asg = battleState.assignments[g];
-        if (asg && asg.bossId === bossId) battleState.assignments[g] = null;
+        if (!asg) return;
+        const bId = (typeof asg === 'object') ? asg.bossId : asg;
+        const mId = (typeof asg === 'object') ? asg.mapId : 1;
+        if (bId === parsedBossId && mId === targetMapId) {
+          battleState.assignments[g] = null;
+        }
       });
 
+      // Limpa calls de servidor caso coincidam com este boss e mapa
+      if (battleState.serverCalls.rust1 && battleState.serverCalls.rust1.bossId === parsedBossId && (battleState.serverCalls.rust1.mapId || 1) === targetMapId) {
+        battleState.serverCalls.rust1 = null;
+      }
+      if (battleState.serverCalls.rust2 && battleState.serverCalls.rust2.bossId === parsedBossId && (battleState.serverCalls.rust2.mapId || 1) === targetMapId) {
+        battleState.serverCalls.rust2 = null;
+      }
+
       io.emit('boss_killed', {
-        bossId,
+        bossId: parsedBossId,
+        mapId: targetMapId,
+        deadKey,
         respawnTime,
-        assignments: battleState.assignments
+        assignments: battleState.assignments,
+        serverCalls: battleState.serverCalls
       });
     });
 

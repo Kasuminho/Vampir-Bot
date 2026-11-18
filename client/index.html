@@ -679,8 +679,14 @@
       });
 
       socket.on('boss_killed', (data) => {
-        deadBosses[data.bossId] = data.respawnTime;
-        assignments = data.assignments;
+        const deadKey = data.deadKey || `${data.mapId || 1}_${data.bossId}`;
+        deadBosses[deadKey] = data.respawnTime;
+        delete deadBosses[data.bossId];
+        if (data.assignments) assignments = data.assignments;
+        if (data.serverCalls) {
+          serverCalls = data.serverCalls;
+          updateServerCallsUI();
+        }
         playKillSound();
         renderAll();
       });
@@ -972,7 +978,9 @@
         if (socket && currentUser) {
           const currentTarget = assignments[currentUser.guildId || 'NOM'];
           if (currentTarget !== null && currentTarget !== undefined) {
-            socket.emit('mark_boss_dead', { bossId: currentTarget, respawnSeconds: 15 * 60 + 31 });
+            const bId = (typeof currentTarget === 'object') ? currentTarget.bossId : currentTarget;
+            const mId = (typeof currentTarget === 'object') ? currentTarget.mapId : currentMapId;
+            socket.emit('mark_boss_dead', { bossId: bId, mapId: mId, respawnSeconds: 15 * 60 + 31 });
           }
         }
       } else if (key === '*' || key === 'NumpadMultiply') {
@@ -1031,7 +1039,9 @@
         if (socket && currentUser) {
           const currentTarget = assignments[currentUser.guildId || 'NOM'];
           if (currentTarget !== null && currentTarget !== undefined) {
-            socket.emit('mark_boss_dead', { bossId: currentTarget, respawnSeconds: 15 * 60 + 31 });
+            const bId = (typeof currentTarget === 'object') ? currentTarget.bossId : currentTarget;
+            const mId = (typeof currentTarget === 'object') ? currentTarget.mapId : currentMapId;
+            socket.emit('mark_boss_dead', { bossId: bId, mapId: mId, respawnSeconds: 15 * 60 + 31 });
           }
         }
       });
@@ -1083,7 +1093,9 @@
           return bId === boss.id && mId === currentMapId;
         });
         const hasAssignment = assignedGuildKeys.length > 0;
-        const isDead = deadBosses[boss.id] && deadBosses[boss.id] > Date.now();
+        const deadKey = `${currentMapId}_${boss.id}`;
+        const deadTime = deadBosses[deadKey] || (deadBosses[boss.id] && currentMapId === 1 ? deadBosses[boss.id] : null);
+        const isDead = deadTime && deadTime > Date.now();
 
         // Server calls for this boss on current map
         const isRust1Call = serverCalls && serverCalls.rust1 && serverCalls.rust1.bossId === boss.id && (serverCalls.rust1.mapId || 1) === currentMapId;
@@ -1161,7 +1173,7 @@
 
         let timerText = '';
         if (isDead) {
-          const remainingSec = Math.max(0, Math.floor((deadBosses[boss.id] - Date.now()) / 1000));
+          const remainingSec = Math.max(0, Math.floor((deadTime - Date.now()) / 1000));
           const m = Math.floor(remainingSec / 60);
           const s = remainingSec % 60;
           timerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
