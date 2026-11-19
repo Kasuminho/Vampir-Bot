@@ -17,6 +17,13 @@ function buildGuildEmbedAndRow(discordGuild, g, memberCount) {
     } catch {}
   }
 
+  const isClosed = g.recruitmentStatus === 'closed';
+  const statusVagas = isClosed
+    ? '🔴 **Fechado (Lotado)**'
+    : (g.vacancies !== undefined && g.vacancies !== null && String(g.vacancies).trim() !== ''
+        ? `🟢 **Aberto** (\`${g.vacancies} vagas\`)`
+        : '🟢 **Aberto** (`Vagas Abertas`)');
+
   const guildEmbed = new EmbedBuilder()
     .setTitle(`[${g.tag}] ${g.name}`)
     .setDescription(g.description || 'Legião parceira oficial da comunidade Vampir.')
@@ -24,8 +31,17 @@ function buildGuildEmbedAndRow(discordGuild, g, memberCount) {
     .addFields(
       { name: '👑 Liderança', value: `<@${g.leaderId}>`, inline: true },
       { name: '👥 Integrantes', value: `\`${memberCount} membros\``, inline: true },
-      { name: '🏷️ Tag', value: `\`[${g.tag}]\``, inline: true }
+      { name: '🏷️ Tag', value: `\`[${g.tag}]\``, inline: true },
+      { name: '🚪 Vagas & Status', value: statusVagas, inline: true }
     );
+
+  if (g.recruitmentNotes && g.recruitmentNotes.trim().length > 0) {
+    guildEmbed.addFields({
+      name: '📌 Requisitos da Guild',
+      value: `*${g.recruitmentNotes}*`,
+      inline: false
+    });
+  }
 
   if (g.officerIds && g.officerIds.length > 0) {
     guildEmbed.addFields({
@@ -36,7 +52,7 @@ function buildGuildEmbedAndRow(discordGuild, g, memberCount) {
   }
 
   guildEmbed
-    .setFooter({ text: `ID do Clã: ${g.id} • Clique abaixo para ingressar` })
+    .setFooter({ text: `ID do Clã: ${g.id} • ${isClosed ? 'Recrutamento fechado no momento (apenas fila)' : 'Clique abaixo para ingressar'}` })
     .setTimestamp();
 
   if (g.iconUrl && typeof g.iconUrl === 'string' && g.iconUrl.startsWith('http')) {
@@ -48,8 +64,8 @@ function buildGuildEmbedAndRow(discordGuild, g, memberCount) {
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`apply_guild_${g.id}`)
-      .setLabel(`✉️ Aplicar para ${g.tag}`)
-      .setStyle(ButtonStyle.Primary)
+      .setLabel(isClosed ? `⏳ Fila de Espera (${g.tag})` : `✉️ Aplicar para ${g.tag}`)
+      .setStyle(isClosed ? ButtonStyle.Secondary : ButtonStyle.Primary)
   );
 
   return { embed: guildEmbed, row };

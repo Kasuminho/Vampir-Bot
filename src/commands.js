@@ -101,6 +101,15 @@ const commands = [
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   new SlashCommandBuilder()
+    .setName('painel-guild')
+    .setDescription('Publica ou atualiza o Painel de Gestão da Guild no canal de aprovações (Líder ou Staff)')
+    .addStringOption(option =>
+      option.setName('tag')
+        .setDescription('Tag da Guild (ex: OLP, NOM, CHP) — opcional se você lidera apenas uma guild')
+        .setRequired(false)
+    ),
+
+  new SlashCommandBuilder()
     .setName('listar-guilds')
     .setDescription('Lista todas as guilds cadastradas no sistema')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),

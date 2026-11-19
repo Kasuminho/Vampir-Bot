@@ -5,6 +5,7 @@ const { commands } = require('./commands');
 const { initDataManager, getServerConfig } = require('./data_manager');
 const { renderRecruitmentPanel } = require('./recruitment_panel');
 const { renderOrUpdateTransferPanel } = require('./transfer_panel');
+const { renderAllGuildPanels } = require('./guild_panel');
 const {
   initBossManager,
   renderOrUpdateBossPanel,
@@ -81,6 +82,14 @@ client.once('ready', async () => {
     } catch (err) {
       console.warn('[AVISO] Não foi possível atualizar painel de transferências no startup:', err.message);
     }
+  }
+
+  // Renderizar / sincronizar os Painéis de Gestão das Guildas
+  try {
+    const guild = await client.guilds.fetch(process.env.GUILD_ID);
+    await renderAllGuildPanels(guild);
+  } catch (err) {
+    console.warn('[AVISO] Não foi possível atualizar painéis de gestão de guildas no startup:', err.message);
   }
 
   // Renderizar o painel de Boss Timers caso o canal exista

@@ -17,6 +17,7 @@ const {
   findGuildsByCallerId
 } = require('../data_manager');
 const { renderRecruitmentPanel, updateSingleGuildCard } = require('../recruitment_panel');
+const { renderOrUpdateGuildPanel, renderAllGuildPanels } = require('../guild_panel');
 const { renderOrUpdateTransferPanel } = require('../transfer_panel');
 const {
   getBossData,
@@ -1317,6 +1318,66 @@ async function handleCommand(interaction, refreshServerStats) {
     await renderOrUpdateTransferPanel(guild, chTransferencia);
 
     return interaction.editReply('✅ Central oficial de transferências atualizada com sucesso com todas as legiões ativas!');
+  }
+
+  // --- /painel-guild ---
+  if (commandName === 'painel-guild') {
+    await interaction.deferReply({ ephemeral: true });
+
+    const tagInput = interaction.options.getString('tag');
+    const allGuilds = getGuilds();
+
+    const isMasterAdmin = interaction.user.id === '273600843251712020' ||
+      interaction.user.id === guild.ownerId ||
+      interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+    const isStaff = isMasterAdmin || (config?.roles?.staff && interaction.member.roles.cache.has(config.roles.staff));
+
+    // Se informou 'all' ou 'todas' e é staff, atualiza todas
+    if (tagInput && (tagInput.toLowerCase() === 'all' || tagInput.toLowerCase() === 'todas')) {
+      if (!isStaff) {
+        return interaction.editReply('❌ Apenas a Staff pode sincronizar todas as guildas simultaneamente.');
+      }
+      await renderAllGuildPanels(guild);
+      return interaction.editReply(`✅ Painéis de Gestão sincronizados para todas as **${allGuilds.length}** guildas ativas!`);
+    }
+
+    let targetGuild = null;
+    if (tagInput) {
+      targetGuild = allGuilds.find(g => g.tag.toLowerCase() === tagInput.toLowerCase().trim());
+      if (!targetGuild) {
+        return interaction.editReply(`❌ Nenhuma guild encontrada com a tag **${tagInput}**.`);
+      }
+    } else {
+      // Tenta achar a guild liderada pelo usuário
+      const myGuilds = allGuilds.filter(g =>
+        g.leaderId === interaction.user.id || (Array.isArray(g.officerIds) && g.officerIds.includes(interaction.user.id))
+      );
+      if (myGuilds.length === 1) {
+        targetGuild = myGuilds[0];
+      } else if (myGuilds.length > 1) {
+        return interaction.editReply(`⚠️ Você lidera mais de uma guild (${myGuilds.map(g => `\`[${g.tag}]\``).join(', ')}). Especifique a tag no parâmetro \`tag:\`.`);
+      } else if (isStaff) {
+        // Staff executou sem tag: sincroniza todas!
+        await renderAllGuildPanels(guild);
+        return interaction.editReply(`✅ Como Staff, sincronizou os Painéis de Gestão de todas as **${allGuilds.length}** guildas!`);
+      } else {
+        return interaction.editReply('❌ Você não é Líder nem Oficial de nenhuma guild cadastrada.');
+      }
+    }
+
+    const isLeader = interaction.user.id === targetGuild.leaderId;
+    const isOfficer = Array.isArray(targetGuild.officerIds) && targetGuild.officerIds.includes(interaction.user.id);
+
+    if (!isStaff && !isLeader && !isOfficer) {
+      return interaction.editReply(`❌ Você não tem permissão para gerenciar o painel de **[${targetGuild.tag}] ${targetGuild.name}**.`);
+    }
+
+    const panelMsg = await renderOrUpdateGuildPanel(guild, targetGuild);
+    if (!panelMsg) {
+      return interaction.editReply(`❌ Não foi possível publicar ou encontrar o canal de aprovações de **[${targetGuild.tag}]**.`);
+    }
+
+    return interaction.editReply(`✅ Painel de Gestão da guilda **[${targetGuild.tag}] ${targetGuild.name}** atualizado com sucesso em <#${targetGuild.approvalsChannelId}>!`);
   }
 
   // --- /criar-guild ---

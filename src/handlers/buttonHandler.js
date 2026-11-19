@@ -19,6 +19,7 @@ const {
   updateApplicationStatus
 } = require('../data_manager');
 const { updateSingleGuildCard } = require('../recruitment_panel');
+const { renderOrUpdateGuildPanel } = require('../guild_panel');
 const { renderOrUpdateBossPanel } = require('../boss_manager');
 const { renderOrUpdateVoicePanel } = require('../voice_panel');
 const {
@@ -29,6 +30,17 @@ const {
 } = require('../attendance_manager');
 const { createAuthResponse } = require('../services/overlayService');
 const banRepo = require('../database/ban_repo');
+
+function parseHexColor(colorStr) {
+  if (!colorStr) return Colors.Purple;
+  try {
+    const cleanHex = colorStr.replace('#', '').trim();
+    const parsed = parseInt(cleanHex, 16);
+    return isNaN(parsed) ? Colors.Purple : parsed;
+  } catch {
+    return Colors.Purple;
+  }
+}
 
 /**
  * Roteia e trata todas as interações de botão (interaction.isButton())
@@ -943,6 +955,252 @@ async function handleButton(interaction, refreshServerStats) {
     }
 
     return;
+  }
+
+  // =========================================================================
+  // --- PAINEL DE GESTÃO DA GUILDA (btn_gp_*) ---
+  // =========================================================================
+  if (customId.startsWith('btn_gp_')) {
+    const isMasterAdmin = interaction.user.id === '273600843251712020' ||
+      interaction.user.id === guild.ownerId ||
+      interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+    const isStaff = isMasterAdmin || (config?.roles?.staff && interaction.member.roles.cache.has(config.roles.staff));
+
+    // Identificar a guild alvo pelo customId
+    let targetGuild = null;
+    const allGuilds = getGuilds();
+
+    if (customId.startsWith('btn_gp_edit_info_')) {
+      const gId = customId.replace('btn_gp_edit_info_', '');
+      targetGuild = allGuilds.find(g => g.id === gId);
+    } else if (customId.startsWith('btn_gp_edit_vagas_')) {
+      const gId = customId.replace('btn_gp_edit_vagas_', '');
+      targetGuild = allGuilds.find(g => g.id === gId);
+    } else if (customId.startsWith('btn_gp_refresh_')) {
+      const gId = customId.replace('btn_gp_refresh_', '');
+      targetGuild = allGuilds.find(g => g.id === gId);
+    } else if (customId.startsWith('btn_gp_kick_')) {
+      const gId = customId.replace('btn_gp_kick_', '');
+      targetGuild = allGuilds.find(g => g.id === gId);
+    } else if (customId.startsWith('btn_gp_ban_')) {
+      const gId = customId.replace('btn_gp_ban_', '');
+      targetGuild = allGuilds.find(g => g.id === gId);
+    } else if (customId.startsWith('btn_gp_help_')) {
+      const gId = customId.replace('btn_gp_help_', '');
+      targetGuild = allGuilds.find(g => g.id === gId);
+    }
+
+    if (!targetGuild) {
+      return interaction.reply({
+        content: '❌ Guild não identificada no sistema da Coalizão.',
+        ephemeral: true
+      });
+    }
+
+    const isLeader = interaction.user.id === targetGuild.leaderId;
+    const isOfficer = Array.isArray(targetGuild.officerIds) && targetGuild.officerIds.includes(interaction.user.id);
+
+    if (!isStaff && !isLeader && !isOfficer) {
+      return interaction.reply({
+        content: `❌ **Acesso Negado:** Apenas o Líder e Oficiais da guild **[${targetGuild.tag}] ${targetGuild.name}** (ou Staff Geral) podem gerenciar este painel.`,
+        ephemeral: true
+      });
+    }
+
+    // 1. ATUALIZAR PAINEL IN-PLACE
+    if (customId.startsWith('btn_gp_refresh_')) {
+      await interaction.deferUpdate();
+      await renderOrUpdateGuildPanel(guild, targetGuild);
+      await interaction.followUp({
+        content: `✅ Painel de Gestão da guild **[${targetGuild.tag}]** sincronizado com sucesso!`,
+        ephemeral: true
+      });
+      return;
+    }
+
+    // 2. GUIA RÁPIDO DE COMANDOS DE LIDERANÇA
+    if (customId.startsWith('btn_gp_help_')) {
+      const helpEmbed = new EmbedBuilder()
+        .setTitle(`📖 Guia de Comandos da Liderança ┃ [${targetGuild.tag}]`)
+        .setDescription(
+          `Comandos oficiais disponíveis para o Líder e Oficiais de **[${targetGuild.tag}] ${targetGuild.name}**:\n\n` +
+          `### 👥 Gestão de Membros & Staff:\n` +
+          `• \`/guild-staff acao:adicionar usuario:@membro tag:${targetGuild.tag}\` — Nomeia um novo Oficial da guild.\n` +
+          `• \`/guild-staff acao:remover usuario:@membro tag:${targetGuild.tag}\` — Remove um Oficial da guild.\n` +
+          `• \`/guild-staff acao:listar tag:${targetGuild.tag}\` — Lista todos os oficiais cadastrados.\n` +
+          `• \`/guild-callers acao:adicionar usuario:@membro tag:${targetGuild.tag}\` — Nomeia Shout Caller da guild.\n` +
+          `• \`/guild-remover usuario:@membro motivo:[motivo] tag:${targetGuild.tag}\` — Remove e revoga cargos de um membro.\n\n` +
+          `### ⚖️ Moderação & Coalizão:\n` +
+          `• \`/solicitar-ban usuario:@infrator motivo:[motivo] evidencias:[links]\` — Abre processo de banimento na Cúpula.\n` +
+          `• \`/editar-guild tag:${targetGuild.tag} [nova_tag] [cor] [descricao] [icone_url]\` — Edita dados da guild via chat.\n` +
+          `• \`/painel-guild tag:${targetGuild.tag}\` — Recarrega e publica este Painel de Gestão no canal.\n\n` +
+          `*💡 Dica: Você também pode usar os botões interativos deste painel para executar a maioria dessas ações instantaneamente por formulário!*`
+        )
+        .setColor(parseHexColor(targetGuild.color))
+        .setFooter({ text: 'Coalizão Vampir • Painel de Gestão de Guildas' });
+
+      return interaction.reply({ embeds: [helpEmbed], ephemeral: true });
+    }
+
+    // 3. MODAL: EDITAR INFORMAÇÕES
+    if (customId.startsWith('btn_gp_edit_info_')) {
+      const modal = new ModalBuilder()
+        .setCustomId(`modal_gp_edit_info_${targetGuild.id}`)
+        .setTitle(`Editar: [${targetGuild.tag}] ${targetGuild.name}`.slice(0, 45));
+
+      const inputNome = new TextInputBuilder()
+        .setCustomId('nome')
+        .setLabel('Nome Oficial da Guild')
+        .setStyle(TextInputStyle.Short)
+        .setValue(targetGuild.name || '')
+        .setMaxLength(40)
+        .setRequired(true);
+
+      const inputTag = new TextInputBuilder()
+        .setCustomId('tag')
+        .setLabel('Sigla / Tag (ex: OLP, NOM, NGF)')
+        .setStyle(TextInputStyle.Short)
+        .setValue(targetGuild.tag || '')
+        .setMaxLength(8)
+        .setRequired(true);
+
+      const inputDescricao = new TextInputBuilder()
+        .setCustomId('descricao')
+        .setLabel('Descrição Pública / Foco da Guild')
+        .setStyle(TextInputStyle.Paragraph)
+        .setValue(targetGuild.description || '')
+        .setMaxLength(400)
+        .setRequired(false);
+
+      const inputCor = new TextInputBuilder()
+        .setCustomId('cor')
+        .setLabel('Cor Hexadecimal (ex: #9B59B6)')
+        .setStyle(TextInputStyle.Short)
+        .setValue(targetGuild.color || '#9B59B6')
+        .setMaxLength(7)
+        .setRequired(false);
+
+      const inputIcone = new TextInputBuilder()
+        .setCustomId('icone')
+        .setLabel('URL da Imagem / Brasão da Guild (opcional)')
+        .setStyle(TextInputStyle.Short)
+        .setValue(targetGuild.iconUrl || '')
+        .setRequired(false);
+
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(inputNome),
+        new ActionRowBuilder().addComponents(inputTag),
+        new ActionRowBuilder().addComponents(inputDescricao),
+        new ActionRowBuilder().addComponents(inputCor),
+        new ActionRowBuilder().addComponents(inputIcone)
+      );
+
+      return interaction.showModal(modal);
+    }
+
+    // 4. MODAL: GERENCIAR VAGAS & RECRUTAMENTO
+    if (customId.startsWith('btn_gp_edit_vagas_')) {
+      const modal = new ModalBuilder()
+        .setCustomId(`modal_gp_edit_vagas_${targetGuild.id}`)
+        .setTitle(`Vagas: [${targetGuild.tag}]`.slice(0, 45));
+
+      const inputStatus = new TextInputBuilder()
+        .setCustomId('status')
+        .setLabel('Recrutamento (ABERTO ou FECHADO)')
+        .setStyle(TextInputStyle.Short)
+        .setValue(targetGuild.recruitmentStatus === 'closed' ? 'FECHADO' : 'ABERTO')
+        .setMaxLength(10)
+        .setRequired(true);
+
+      const inputVagas = new TextInputBuilder()
+        .setCustomId('vagas')
+        .setLabel('Quantidade de Vagas (ex: 5, 10 ou 0)')
+        .setStyle(TextInputStyle.Short)
+        .setValue(targetGuild.vacancies !== undefined && targetGuild.vacancies !== null ? String(targetGuild.vacancies) : '5')
+        .setMaxLength(10)
+        .setRequired(true);
+
+      const inputRequisitos = new TextInputBuilder()
+        .setCustomId('requisitos')
+        .setLabel('Requisitos / Foco do Recrutamento')
+        .setStyle(TextInputStyle.Paragraph)
+        .setValue(targetGuild.recruitmentNotes || '')
+        .setPlaceholder('Ex: Foco em PvP, Level 50+, presença em Geena...')
+        .setMaxLength(350)
+        .setRequired(false);
+
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(inputStatus),
+        new ActionRowBuilder().addComponents(inputVagas),
+        new ActionRowBuilder().addComponents(inputRequisitos)
+      );
+
+      return interaction.showModal(modal);
+    }
+
+    // 5. MODAL: REMOVER MEMBRO DA GUILD
+    if (customId.startsWith('btn_gp_kick_')) {
+      const modal = new ModalBuilder()
+        .setCustomId(`modal_gp_kick_${targetGuild.id}`)
+        .setTitle(`Remover Membro de [${targetGuild.tag}]`.slice(0, 45));
+
+      const inputUser = new TextInputBuilder()
+        .setCustomId('usuario')
+        .setLabel('ID do Discord ou @menção do Jogador')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('Ex: 123456789012345678 ou @jogador')
+        .setRequired(true);
+
+      const inputMotivo = new TextInputBuilder()
+        .setCustomId('motivo')
+        .setLabel('Motivo do Desligamento')
+        .setStyle(TextInputStyle.Paragraph)
+        .setPlaceholder('Ex: Inatividade sem justificativa, conduta inadequada, saída amigável...')
+        .setRequired(true);
+
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(inputUser),
+        new ActionRowBuilder().addComponents(inputMotivo)
+      );
+
+      return interaction.showModal(modal);
+    }
+
+    // 6. MODAL: SOLICITAR BANIMENTO DA COALIZÃO
+    if (customId.startsWith('btn_gp_ban_')) {
+      const modal = new ModalBuilder()
+        .setCustomId(`modal_gp_ban_${targetGuild.id}`)
+        .setTitle(`Solicitar Ban: [${targetGuild.tag}]`.slice(0, 45));
+
+      const inputUser = new TextInputBuilder()
+        .setCustomId('usuario')
+        .setLabel('ID do Discord ou @menção do Infrator')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('Ex: 123456789012345678 ou @infrator')
+        .setRequired(true);
+
+      const inputMotivo = new TextInputBuilder()
+        .setCustomId('motivo')
+        .setLabel('Motivo Detalhado da Denúncia')
+        .setStyle(TextInputStyle.Paragraph)
+        .setPlaceholder('Ex: Traição em Geena, roubo de itens, quebra de conduta grave...')
+        .setRequired(true);
+
+      const inputEvidencias = new TextInputBuilder()
+        .setCustomId('evidencias')
+        .setLabel('Links de Prints / Provas / Logs')
+        .setStyle(TextInputStyle.Paragraph)
+        .setPlaceholder('Cole links diretos de imagens, vídeos ou histórico comprovatório...')
+        .setRequired(false);
+
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(inputUser),
+        new ActionRowBuilder().addComponents(inputMotivo),
+        new ActionRowBuilder().addComponents(inputEvidencias)
+      );
+
+      return interaction.showModal(modal);
+    }
   }
 }
 
