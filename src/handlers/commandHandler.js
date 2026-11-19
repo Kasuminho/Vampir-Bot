@@ -50,6 +50,32 @@ function parseHexColor(input) {
   return '#9B59B6';
 }
 
+const RUST1_TAGS = ['CHP', 'SPF', 'TRANS'];
+
+function memberHasLeaderRole(member, config) {
+  if (!member || !config?.roles) return false;
+  return (config.roles.lider && member.roles.cache.has(config.roles.lider)) ||
+         (config.roles.liderRust1 && member.roles.cache.has(config.roles.liderRust1)) ||
+         (config.roles.liderRust2 && member.roles.cache.has(config.roles.liderRust2));
+}
+
+function memberHasOfficerRole(member, config) {
+  if (!member || !config?.roles) return false;
+  return (config.roles.oficial && member.roles.cache.has(config.roles.oficial)) ||
+         (config.roles.oficialRust1 && member.roles.cache.has(config.roles.oficialRust1)) ||
+         (config.roles.oficialRust2 && member.roles.cache.has(config.roles.oficialRust2));
+}
+
+function getLeaderRoleIdForGuild(tag, config) {
+  const isR1 = RUST1_TAGS.includes((tag || '').toUpperCase());
+  return isR1 ? (config.roles.liderRust1 || config.roles.lider) : (config.roles.liderRust2 || config.roles.lider);
+}
+
+function getOfficerRoleIdForGuild(tag, config) {
+  const isR1 = RUST1_TAGS.includes((tag || '').toUpperCase());
+  return isR1 ? (config.roles.oficialRust1 || config.roles.oficial) : (config.roles.oficialRust2 || config.roles.oficial);
+}
+
 /**
  * Retorna todos os canais de gestão/liderança de uma guilda (aprovações e validação-geena)
  */
@@ -379,7 +405,8 @@ async function handleCommand(interaction, refreshServerStats) {
         const officerMember = await guild.members.fetch(targetUser.id);
         if (officerMember) {
           if (targetGuild.roleId) await officerMember.roles.add(targetGuild.roleId);
-          if (config?.roles?.oficial) await officerMember.roles.add(config.roles.oficial);
+          const offRoleId = getOfficerRoleIdForGuild(targetGuild.tag, config);
+          if (offRoleId) await officerMember.roles.add(offRoleId);
           if (config?.roles?.validado) await officerMember.roles.add(config.roles.validado);
         }
       } catch (err) {
@@ -430,10 +457,12 @@ async function handleCommand(interaction, refreshServerStats) {
 
       try {
         const targetMember = await guild.members.fetch(targetUser.id);
-        if (targetMember && config?.roles?.oficial) {
+        if (targetMember) {
           const otherOfficerGuilds = getGuilds().filter(g => g.id !== targetGuild.id && g.officerIds && g.officerIds.includes(targetUser.id));
           if (otherOfficerGuilds.length === 0) {
-            await targetMember.roles.remove(config.roles.oficial).catch(() => {});
+            if (config?.roles?.oficial) await targetMember.roles.remove(config.roles.oficial).catch(() => {});
+            if (config?.roles?.oficialRust1) await targetMember.roles.remove(config.roles.oficialRust1).catch(() => {});
+            if (config?.roles?.oficialRust2) await targetMember.roles.remove(config.roles.oficialRust2).catch(() => {});
           }
         }
       } catch {}
@@ -498,19 +527,25 @@ async function handleCommand(interaction, refreshServerStats) {
         const newLeaderMember = await guild.members.fetch(targetUser.id);
         if (newLeaderMember) {
           if (targetGuild.roleId) await newLeaderMember.roles.add(targetGuild.roleId);
-          if (config?.roles?.lider) await newLeaderMember.roles.add(config.roles.lider);
+          const leadRoleId = getLeaderRoleIdForGuild(targetGuild.tag, config);
+          if (leadRoleId) await newLeaderMember.roles.add(leadRoleId);
           if (config?.roles?.oficial) await newLeaderMember.roles.remove(config.roles.oficial).catch(() => {});
+          if (config?.roles?.oficialRust1) await newLeaderMember.roles.remove(config.roles.oficialRust1).catch(() => {});
+          if (config?.roles?.oficialRust2) await newLeaderMember.roles.remove(config.roles.oficialRust2).catch(() => {});
           if (config?.roles?.validado) await newLeaderMember.roles.add(config.roles.validado);
         }
 
         const oldLeaderMember = await guild.members.fetch(oldLeaderId);
         if (oldLeaderMember) {
           const otherLeaderGuilds = findGuildsByLeaderId(oldLeaderId);
-          if (otherLeaderGuilds.length === 0 && config?.roles?.lider) {
-            await oldLeaderMember.roles.remove(config.roles.lider).catch(() => {});
+          if (otherLeaderGuilds.length === 0) {
+            if (config?.roles?.lider) await oldLeaderMember.roles.remove(config.roles.lider).catch(() => {});
+            if (config?.roles?.liderRust1) await oldLeaderMember.roles.remove(config.roles.liderRust1).catch(() => {});
+            if (config?.roles?.liderRust2) await oldLeaderMember.roles.remove(config.roles.liderRust2).catch(() => {});
           }
-          if (config?.roles?.oficial) {
-            await oldLeaderMember.roles.add(config.roles.oficial).catch(() => {});
+          const oldOffRoleId = getOfficerRoleIdForGuild(targetGuild.tag, config);
+          if (oldOffRoleId) {
+            await oldLeaderMember.roles.add(oldOffRoleId).catch(() => {});
           }
         }
       } catch {}
@@ -983,8 +1018,8 @@ async function handleCommand(interaction, refreshServerStats) {
     const isStaffOrLeader = interaction.member.permissions.has(PermissionFlagsBits.Administrator) ||
       interaction.member.permissions.has(PermissionFlagsBits.MoveMembers) ||
       (config?.roles?.staff && interaction.member.roles.cache.has(config.roles.staff)) ||
-      (config?.roles?.lider && interaction.member.roles.cache.has(config.roles.lider)) ||
-      (config?.roles?.oficial && interaction.member.roles.cache.has(config.roles.oficial));
+      memberHasLeaderRole(interaction.member, config) ||
+      memberHasOfficerRole(interaction.member, config);
 
     if (!isStaffOrLeader) {
       return interaction.editReply('❌ Você não tem permissão para mover membros.');
@@ -1309,7 +1344,8 @@ async function handleCommand(interaction, refreshServerStats) {
       const liderMember = await guild.members.fetch(liderUser.id);
       if (liderMember) {
         await liderMember.roles.add(roleGuild);
-        if (config?.roles?.lider) await liderMember.roles.add(config.roles.lider);
+        const leadRoleId = getLeaderRoleIdForGuild(tag, config);
+        if (leadRoleId) await liderMember.roles.add(leadRoleId);
         if (config?.roles?.validado) await liderMember.roles.add(config.roles.validado);
       }
 
@@ -1733,8 +1769,8 @@ async function handleCommand(interaction, refreshServerStats) {
   if (commandName === 'estender-presenca') {
     const isStaff = member.permissions.has(PermissionFlagsBits.Administrator) ||
                     (config?.roles?.staff && member.roles.cache.has(config.roles.staff));
-    const isLider = config?.roles?.lider && member.roles.cache.has(config.roles.lider);
-    const isOficial = config?.roles?.oficial && member.roles.cache.has(config.roles.oficial);
+    const isLider = memberHasLeaderRole(member, config);
+    const isOficial = memberHasOfficerRole(member, config);
 
     if (!isStaff && !isLider && !isOficial) {
       return interaction.reply({
@@ -1978,8 +2014,8 @@ async function handleCommand(interaction, refreshServerStats) {
   // --- /lockdown ---
   if (commandName === 'lockdown') {
     const isStaff = member.permissions.has(PermissionFlagsBits.Administrator) || (config?.roles?.staff && member.roles.cache.has(config.roles.staff));
-    const isLider = config?.roles?.lider && member.roles.cache.has(config.roles.lider);
-    const isOficial = config?.roles?.oficial && member.roles.cache.has(config.roles.oficial);
+    const isLider = memberHasLeaderRole(member, config);
+    const isOficial = memberHasOfficerRole(member, config);
     const isCaller = config?.roles?.caller && member.roles.cache.has(config.roles.caller);
 
     if (!isStaff && !isLider && !isOficial && !isCaller) {
@@ -2041,8 +2077,8 @@ async function handleCommand(interaction, refreshServerStats) {
       interaction.user.id === guild.ownerId ||
       interaction.member.permissions.has(PermissionFlagsBits.Administrator);
     const isStaff = isMasterAdmin || (config?.roles?.staff && member.roles.cache.has(config.roles.staff));
-    const isLider = config?.roles?.lider && member.roles.cache.has(config.roles.lider);
-    const isOficial = config?.roles?.oficial && member.roles.cache.has(config.roles.oficial);
+    const isLider = memberHasLeaderRole(member, config);
+    const isOficial = memberHasOfficerRole(member, config);
 
     if (!isStaff && !isLider && !isOficial) {
       return interaction.reply({
@@ -2220,9 +2256,17 @@ async function handleCommand(interaction, refreshServerStats) {
           await m.roles.remove(oficialRoleId).catch(() => {});
           modified = true;
         }
+        if (config?.roles?.oficialRust1 && m.roles.cache.has(config.roles.oficialRust1) && !allOfficerIds.has(m.id)) {
+          await m.roles.remove(config.roles.oficialRust1).catch(() => {});
+          modified = true;
+        }
 
         if (liderRoleId && m.roles.cache.has(liderRoleId) && !allLeaderIds.has(m.id)) {
           await m.roles.remove(liderRoleId).catch(() => {});
+          modified = true;
+        }
+        if (config?.roles?.liderRust1 && m.roles.cache.has(config.roles.liderRust1) && !allLeaderIds.has(m.id)) {
+          await m.roles.remove(config.roles.liderRust1).catch(() => {});
           modified = true;
         }
 

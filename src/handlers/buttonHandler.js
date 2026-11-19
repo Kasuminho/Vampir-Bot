@@ -730,8 +730,10 @@ async function handleButton(interaction, refreshServerStats) {
       interaction.user.id === guild.ownerId ||
       interaction.member.permissions.has(PermissionFlagsBits.Administrator);
     const isStaff = isMasterAdmin || (config?.roles?.staff && interaction.member.roles.cache.has(config.roles.staff));
-    const isLider = config?.roles?.lider && interaction.member.roles.cache.has(config.roles.lider);
-    const isOficial = config?.roles?.oficial && interaction.member.roles.cache.has(config.roles.oficial);
+    const isLider = (config?.roles?.lider && interaction.member.roles.cache.has(config.roles.lider)) ||
+      (config?.roles?.liderRust1 && interaction.member.roles.cache.has(config.roles.liderRust1));
+    const isOficial = (config?.roles?.oficial && interaction.member.roles.cache.has(config.roles.oficial)) ||
+      (config?.roles?.oficialRust1 && interaction.member.roles.cache.has(config.roles.oficialRust1));
 
     if (!isStaff && !isLider && !isOficial) {
       return interaction.reply({
@@ -896,7 +898,8 @@ async function handleButton(interaction, refreshServerStats) {
       interaction.user.id === guild.ownerId ||
       interaction.member.permissions.has(PermissionFlagsBits.Administrator);
     const isStaff = isMasterAdmin || (config?.roles?.staff && interaction.member.roles.cache.has(config.roles.staff));
-    const isLider = config?.roles?.lider && interaction.member.roles.cache.has(config.roles.lider);
+    const isLider = (config?.roles?.lider && interaction.member.roles.cache.has(config.roles.lider)) ||
+      (config?.roles?.liderRust1 && interaction.member.roles.cache.has(config.roles.liderRust1));
     const isRequester = interaction.user.id === banReq.requested_by_id;
 
     if (!isRequester && !isStaff && !isLider) {
