@@ -6,13 +6,10 @@ const RESTRICTED_CHANNELS = [
   '1565129739159478332', // #chat-geral
   '1565781677018452112', // #chat-geral-en
   '1566849577590587463', // #comércio-e-mercado
-  '1569012901522440302', // #painel-presenças
-  '1567716583810400297', // #painel-de-calls
-  '1565129741025935411', // 🔊・Lobby Geral (voz)
-  '1565139448235032766'  // 🔊・Call 1 (voz)
+  '1565129741025935411'  // 🔊・Lobby Geral (voz)
 ];
 
-const COMMUNITY_CATEGORY_ID = '1565129733208014879'; // 🌐 │ COMUNIDADE GERAL
+const COMMUNITY_CATEGORY_ID = '1565129733208014879'; // 🌐 │ COMUNIDADE RUST 2
 const AFK_CHANNEL_ID = '1565139452773277716';
 
 // Horários dos Bosses principais de Geena (15:00, 19:00, 23:00)
