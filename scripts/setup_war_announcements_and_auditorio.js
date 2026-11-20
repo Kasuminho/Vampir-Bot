@@ -70,9 +70,7 @@ client.once('ready', async () => {
           deny: [
             PermissionFlagsBits.Speak,
             PermissionFlagsBits.SendMessages,
-            PermissionFlagsBits.RequestToSpeak,
-            PermissionFlagsBits.Stream,
-            PermissionFlagsBits.UseVAD // Desativa detecção de voz livre
+            PermissionFlagsBits.RequestToSpeak
           ]
         },
         // 3. [🛡️] Staff / Admin: Controle total
@@ -82,6 +80,7 @@ client.once('ready', async () => {
             PermissionFlagsBits.ViewChannel,
             PermissionFlagsBits.Connect,
             PermissionFlagsBits.Speak,
+            PermissionFlagsBits.UseVAD,
             PermissionFlagsBits.PrioritySpeaker,
             PermissionFlagsBits.MuteMembers,
             PermissionFlagsBits.DeafenMembers,
@@ -96,6 +95,7 @@ client.once('ready', async () => {
             PermissionFlagsBits.ViewChannel,
             PermissionFlagsBits.Connect,
             PermissionFlagsBits.Speak,
+            PermissionFlagsBits.UseVAD,
             PermissionFlagsBits.PrioritySpeaker,
             PermissionFlagsBits.MuteMembers
           ]
@@ -107,6 +107,7 @@ client.once('ready', async () => {
             PermissionFlagsBits.ViewChannel,
             PermissionFlagsBits.Connect,
             PermissionFlagsBits.Speak,
+            PermissionFlagsBits.UseVAD,
             PermissionFlagsBits.PrioritySpeaker,
             PermissionFlagsBits.MuteMembers
           ]
@@ -118,6 +119,7 @@ client.once('ready', async () => {
             PermissionFlagsBits.ViewChannel,
             PermissionFlagsBits.Connect,
             PermissionFlagsBits.Speak,
+            PermissionFlagsBits.UseVAD,
             PermissionFlagsBits.PrioritySpeaker
           ]
         },
@@ -128,6 +130,7 @@ client.once('ready', async () => {
             PermissionFlagsBits.ViewChannel,
             PermissionFlagsBits.Connect,
             PermissionFlagsBits.Speak,
+            PermissionFlagsBits.UseVAD,
             PermissionFlagsBits.PrioritySpeaker
           ]
         },
@@ -138,6 +141,7 @@ client.once('ready', async () => {
             PermissionFlagsBits.ViewChannel,
             PermissionFlagsBits.Connect,
             PermissionFlagsBits.Speak,
+            PermissionFlagsBits.UseVAD,
             PermissionFlagsBits.PrioritySpeaker
           ]
         },
@@ -148,6 +152,7 @@ client.once('ready', async () => {
             PermissionFlagsBits.ViewChannel,
             PermissionFlagsBits.Connect,
             PermissionFlagsBits.Speak,
+            PermissionFlagsBits.UseVAD,
             PermissionFlagsBits.PrioritySpeaker
           ]
         }
